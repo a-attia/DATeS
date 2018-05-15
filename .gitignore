@@ -1,0 +1,14 @@
+build
+doc/*.html
+doc/*.info
+doc/*.pdf
+doc/apiref
+doc/usrman
+doc/DATeS_Download
+dist
+__pycache__
+*.pyc
+*.pyo
+.tox
+.DS_Store
+
