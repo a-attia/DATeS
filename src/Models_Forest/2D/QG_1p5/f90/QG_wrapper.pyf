@@ -1,0 +1,25 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module QG_wrapper ! in 
+    interface  ! in :QG_wrapper
+        subroutine qgstepfunction(t,psi,prmfname,nx,ny) ! in :QG_wrapper:qgstep_wrap.f90
+            use parameters_mod
+            use utils_mod, only: strlen
+            real(kind=8) intent(in, out) :: t
+            real(kind=8) optional, intent(in), depend(psi) :: nx=shape(psi,0)
+            real(kind=8) optional, intent(in), depend(psi) :: ny=shape(psi,1)
+            real(kind=8) dimension(nx,ny),intent(in, out) :: psi
+            character*1024 :: prmfname
+        end subroutine qgstepfunction
+!        subroutine my(t,psi) ! in :QG_wrapper:qgstep_wrap.f90
+!            use qgstep_mod
+!            use parameters_mod, only: scheme,m,n
+!            real(kind=8) intent(inout) :: t
+!            real(kind=8) dimension(129,129),intent(inout) :: psi
+!        end subroutine my
+    end interface 
+end python module QG_wrapper
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

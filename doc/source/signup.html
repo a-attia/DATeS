@@ -1,0 +1,216 @@
+<!DOCTYPE HTML>
+<html>
+<style>
+/* Full-width input fields */
+input[type=text], input[type=password] {
+    width: 100%;
+    padding: 12px 20px;
+    margin: 8px 0;
+    display: inline-block;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+}
+
+/* Set a style for all buttons */
+button {
+    background-color: #4CAF50;
+    color: white;
+    padding: 14px 20px;
+    margin: 8px 0;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+}
+
+.center {
+  display: table;
+  margin: auto;
+}
+
+
+/* Extra styles for the cancel button */
+.homebtn {
+    padding: 14px 20px;
+    background-color: #800000;
+}
+
+/* Extra styles for the cancel button */
+.cancelbtn {
+    padding: 14px 20px;
+    background-color: #f44336;
+}
+
+/* Float cancel and signup buttons and add an equal width */
+.cancelbtn,.signupbtn {
+    float: left;
+    width: 50%;
+}
+
+/* Float cancel and signup buttons and add an equal width */
+.homebtn {
+    float: left;
+    width: 30%;
+    position: relative;
+    left: 35%;
+}
+
+/* Add padding to container elements */
+.container {
+    padding: 16px;
+}
+
+/* Clear floats */
+.clearfix::after {
+    content: "";
+    clear: both;
+    display: table;
+}
+
+/* Change styles for cancel button and signup button on extra small screens */
+@media screen and (max-width: 300px) {
+    .cancelbtn, .signupbtn, .homebtn {
+       width: 100%;
+    }
+}
+</style>
+<body>
+
+<?php
+    // define variables and set to empty values
+    $nameErr = $emailErr = $affiliationErr = $websiteErr = ""
+    $name = $email = $affiliation = $psw = $psw-repeat = "";
+    $user_job = "-- Select --";
+    $user_data_assimilation = user_uncertainty_quantification = user_modeling = user_numerical_methods = "";
+
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+      if (empty($_POST["name"])) {
+        $nameErr = "Name is required";
+      } else {
+        $name = test_input($_POST["name"]);
+        // check if name only contains letters and whitespace
+        if (!preg_match("/^[a-zA-Z ]*$/",$name)) {
+          $nameErr = "Only letters and white space allowed";
+        }
+      }
+      
+      if (empty($_POST["email"])) {
+        $emailErr = "Email is required";
+      } else {
+        $email = test_input($_POST["email"]);
+        // check if e-mail address is well-formed
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+          $emailErr = "Invalid email format";
+        }
+      }
+      
+      if ($_SERVER["REQUEST_METHOD"] == "POST") {
+      if (empty($_POST["affiliation"])) {
+        $affiliationErr = "Affiliation is required";
+      } else {
+        $affiliation = test_input($_POST["affiliation"]);
+        // check if affiliation only contains letters and whitespace
+        if (!preg_match("/^[a-zA-Z ]*$/",$affiliation)) {
+          $affiliationErr = "Only letters and white space allowed";
+        }
+      }
+      
+      $psw = test_input($_POST["psw"]);
+      $psw-repeat = test_input($_POST["psw-repeat"]);
+      $user_job = test_input($_POST["user_job"]);
+      $user_data_assimilation = test_input($_POST["user_data_assimilation"]);
+      $user_uncertainty_quantification = test_input($_POST["user_uncertainty_quantification"]);
+      $user_modeling = test_input($_POST["user_modeling"]);
+      $user_numerical_methods = test_input($_POST["user_numerical_methods"]);
+    }
+
+    function test_input($data) {
+      $data = trim($data);
+      $data = stripslashes($data);
+      $data = htmlspecialchars($data);
+      return $data;
+    }
+    
+    
+?>
+
+<h1>Sign Up</h1>
+
+<h3> 
+<p style="color:maroon;">
+    Please sign up to download DATeS. <br> 
+    The signup process helps us track, and enhance the performance of DATeS.
+    <br><br>
+    Once, you enter valid information, a temporary download link will be sent to your email.<br>
+    The download link will be available for 5 hours.
+</p>
+</h3>
+<br>
+
+<form id="signupForm" method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]);?>
+  <div class="container">
+    <label><b>Name</b></label>
+    <input type="text" placeholder="Enter Name" name="name" required>
+    
+    <label><b>Email</b></label>
+    <input type="text" placeholder="Enter Email" name="email" required>
+
+    <label><b>Affiliation</b></label>
+    <input type="text" placeholder="Enter Affiliation" name="affiliation" required>
+
+    <label><b>Password</b></label>
+    <input type="password" placeholder="Enter Password" name="psw" required>
+
+    <label><b>Repeat Password</b></label>
+    <input type="password" placeholder="Repeat Password" name="psw-repeat" required>
+    
+    <br><br>
+    <label for="job">Job Role:</label> <br>
+        <select id="job" name="user_job">
+          <optgroup label="Academic">
+            <option value="professor">Professor</option>
+            <option value="student">Student</option>
+            <option value="researcher">Researcher</option>
+          </optgroup>
+          <optgroup label="Other">
+            <option value="other">Other</option>
+          </optgroup>
+        </select>
+    
+    
+    <br><br>
+    <label><b>Interest</b></label> <br>
+        <input type="checkbox" id="data_assimilation" value="interest_data_assimilation" name="user_data_assimilation"><label class="light" for="data_assimilation">Data Assimilation</label><br>
+                <input type="checkbox" id="uncertainty_quantification" value="interest_uncertainty_quantification" name="user_uncertainty_quantification"><label class="light" for="uncertainty_quantification">Uncertainty Quantification</label><br>
+              <input type="checkbox" id="modeling" value="interest_modeling" name="user_modeling"><label class="light" for="modeling">Modeling</label><br>
+              <input type="checkbox" id="numerical_methods" value="interest_numerical_methods" name="user_numerical_methods"><label class="light" for="numerical_methods">Numerical Methods</label><br>
+    <br><br>
+    
+    <div class="clearfix">
+      <button type="button" onClick="clearForm()" class="cancelbtn"><b>Cancel</b></button>
+      <button type="submit" class="signupbtn"><b>Sign Up</b></button>
+      <br>
+      <button type="button" onClick="gotoDATeS()" class="homebtn"><b>Back to DATeS</b></button>
+    </div>
+  </div>
+</form>
+
+
+
+<script>
+function clearForm() {
+    document.getElementById("signupForm").reset();
+}
+</script>
+
+<script>
+function gotoDATeS() {
+    window.location.href = "index.html";
+}
+</script>
+
+
+</body>
+</html>
+
+
+

@@ -1,0 +1,57 @@
+  <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sign Up Form</title>
+        <link rel="stylesheet" href="css/normalize.css">
+        <link href='http://fonts.googleapis.com/css?family=Nunito:400,300' rel='stylesheet' type='text/css'>
+        <link rel="stylesheet" href="css/main.css">
+    </head>
+    <body>
+
+      <form action="index.html" method="post">
+      
+        <h1>Sign Up</h1>
+        
+        <fieldset>
+          <legend><span class="number">1</span>Your basic info</legend>
+          <label for="name">Name:</label>
+          <input type="text" id="name" name="user_name">
+          
+          <label for="mail">Email:</label>
+          <input type="email" id="mail" name="user_email">
+          
+          <label for="Affiliation">Affiliation:</label>
+          <input type="password" id="password" name="user_password">
+          
+        </fieldset>
+        
+        <fieldset>
+          <legend><span class="number">2</span>Your profile</legend>
+          <label for="bio">Biography:</label>
+          <textarea id="bio" name="user_bio"></textarea>
+        </fieldset>
+        <fieldset>
+        <label for="job">Job Role:</label>
+        <select id="job" name="user_job">
+          <optgroup label="Academic">
+            <option value="professor">Professor</option>
+            <option value="student">Student</option>
+            <option value="researcher">Researcher</option>
+          </optgroup>
+          <optgroup label="Other">
+            <option value="other">Other</option>
+          </optgroup>
+        </select>
+        
+          <label>Interests:</label>
+          <input type="checkbox" id="data_assimilation" value="interest_data_assimilation" name="user_data_assimilation"><label class="light" for="data_assimilation">Data Assimilation</label><br>
+            <input type="checkbox" id="uncertainty_quantification" value="interest_uncertainty_quantification" name="user_uncertainty_quantification"><label class="light" for="uncertainty_quantification">Uncertainty Quantification</label><br>
+          <input type="checkbox" id="modeling" value="interest_modeling" name="user_modeling"><label class="light" for="modeling">Modeling</label><br>
+          <input type="checkbox" id="numerical_methods" value="interest_numerical_methods" name="user_numerical_methods"><label class="light" for="numerical_methods">Numerical Methods</label><br>
+          
+        </fieldset>
+        <button type="submit">Sign Up</button>
+      </form>
+      
+    </body>
+</html>

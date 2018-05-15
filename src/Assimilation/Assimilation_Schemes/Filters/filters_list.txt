@@ -1,0 +1,36 @@
+#======================================================================================================================#
+#                                                                                                                      #
+# This file contains a list of all FILTERS incorporated in DATeS.                                                      #
+# lines starting with '#' are taken as comments lines.                                                                 #
+# You can add new FILTERS manually, but we recommend adding new FILTERS using suitable driver.                         #
+#                                                                                                                      #
+# To add a FILTER to the list:                                                                                         #
+# ------------------------------                                                                                       #
+#      1- Make sure the FILTER does not exist in the list (or chose a new name and a new directory),                   #
+#      2- Copy your source code into a new directory (respect the forest structure logic),                             #
+#      3- Add the new FILTER info as described in the table below.                                                     #
+#      Remarks:                                                                                                        #
+#      ~~~~~~~~                                                                                                        #
+#           i   - Make sure you add a FILTER name.                                                                     #
+#           ii  - If the source codes incorporate different language, list all (comma-separated) e.g. C,C++,Fortran).  #
+#           iii - The 'filter_relative_path                                                                            #
+#           iv  - Adding the code manually, means, you need to take care of the interfacing yourself!                  #
+#           v   - Don't remove the line starting with '[start_table]' or you will miss this header!                    #
+#                                                                                                                      #
+#======================================================================================================================#
+
+
+
+
+[start_table]
+# -------------------------------------------------------------------------------------------------------------------- #
+#  Id   | filter name              | Source code language(s)     | filter relative path                                #
+# -------------------------------------------------------------------------------------------------------------------- #
+   001  | EnKF                     | Python                      | src/filters/EnKF                                    #
+   002  | MCMC                     | Python                      | src/filters/MCMC                                    #
+   002  | HMC                      | Python                      | src/filters/HMC                                     #
+   003  | MLEF                     | Python                      | src/filters/MLEF                                    #
+   004  | LETKF                    | Python                      | src/filters/LETKF                                   #
+   005  | 3D-VAR                   | Python                      | src/filters/TD_VAR                                  #
+# -------------------------------------------------------------------------------------------------------------------- #
+[end_table]

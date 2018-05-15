@@ -1,0 +1,37 @@
+#======================================================================================================================#
+#                                                                                                                      #
+# This file contains a list of all MODELS incorporated in DATeS.                                                       #
+# lines starting with '#' are taken as comments lines.                                                                 #
+# You can add new MODELS manually, but we recommend adding new MODELS using suitable driver.                           #
+#                                                                                                                      #
+# To add a MODEL to the list:                                                                                          #
+# ------------------------------                                                                                       #
+#      1- Make sure the MODEL does not exist in the list (or chose a new name and a new directory),                    #
+#      2- Copy your source code into a new directory (respect the forest structure logic),                             #
+#      3- Add the new MODEL info as described in the table below.                                                      #
+#      Remarks:                                                                                                        #
+#      ~~~~~~~~                                                                                                        #
+#           i   - Make sure you add a MODEL name.                                                                      #
+#           ii  - If the source codes incorporate different language, list all (comma-separated) e.g. C,C++,Fortran).  #
+#           iii - The 'smoother_relative_path                                                                          #
+#           iv  - Adding the code manually, means, you need to take care of the interfacing yourself!                  #
+#           v   - Don't remove the line starting with '[start_table]' or you will miss this header!                    #
+#                                                                                                                      #
+#======================================================================================================================#
+
+
+
+
+[start_table]
+# -------------------------------------------------------------------------------------------------------------------- #
+#  Id   | model name               | Source code language(s)     | model relative path                                 #
+# -------------------------------------------------------------------------------------------------------------------- #
+   000  | Pendulum                 | Python                      | src/Models_Forest/0D/Pendulum
+   001  | Lorenz3                  | Python                      | src/Models_Forest/0D/Lorenz/Lorenz3
+   003  | Lorenz96                 | Python                      | src/Models_Forest/0D/Lorenz/Lorenz96
+   004  | Burger1D                 | Fortran                     | src/Models_Forest/1D/Burger1D
+   005  | Burger2D                 | Fortran                     | src/Models_Forest/2D/Burger2D
+   006  | SWE_Cartesian            | Fortran                     | src/Models_Forest/2D/SWE/SWE_Cartesian
+   007  | SWE_Spherical            | C, C++                      | src/Models_Forest/2D/SWE/SWE_Spherical
+# -------------------------------------------------------------------------------------------------------------------- #
+[end_table]

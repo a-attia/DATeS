@@ -1,0 +1,42 @@
+
+
+
+          _____                   _____            _____                   _____                   _____          
+         /\    \                 /\    \          /\    \                 /\    \                 /\    \         
+        /::\    \               /::\    \        /::\    \               /::\    \               /::\    \        
+       /::::\    \             /::::\    \       \:::\    \             /::::\    \             /::::\    \       
+      /::::::\    \           /::::::\    \       \:::\    \           /::::::\    \           /::::::\    \      
+     /:::/\:::\    \         /:::/\:::\    \       \:::\    \         /:::/\:::\    \         /:::/\:::\    \     
+    /:::/  \:::\    \       /:::/__\:::\    \       \:::\    \       /:::/__\:::\    \       /:::/__\:::\    \    
+   /:::/    \:::\    \     /::::\   \:::\    \      /::::\    \     /::::\   \:::\    \      \:::\   \:::\    \   
+  /:::/    / \:::\    \   /::::::\   \:::\    \    /::::::\    \   /::::::\   \:::\    \   ___\:::\   \:::\    \  
+ /:::/    /   \:::\ ___\ /:::/\:::\   \:::\    \  /:::/\:::\    \ /:::/\:::\   \:::\    \ /\   \:::\   \:::\    \ 
+/:::/____/     \:::|    /:::/  \:::\   \:::\____\/:::/  \:::\____/:::/__\:::\   \:::\____/::\   \:::\   \:::\____\
+\:::\    \     /:::|____\::/    \:::\  /:::/    /:::/    \::/    \:::\   \:::\   \::/    \:::\   \:::\   \::/    /
+ \:::\    \   /:::/    / \/____/ \:::\/:::/    /:::/    / \/____/ \:::\   \:::\   \/____/ \:::\   \:::\   \/____/ 
+  \:::\    \ /:::/    /           \::::::/    /:::/    /           \:::\   \:::\    \      \:::\   \:::\    \     
+   \:::\    /:::/    /             \::::/    /:::/    /             \:::\   \:::\____\      \:::\   \:::\____\    
+    \:::\  /:::/    /              /:::/    /\::/    /               \:::\   \::/    /       \:::\  /:::/    /    
+     \:::\/:::/    /              /:::/    /  \/____/                 \:::\   \/____/         \:::\/:::/    /     
+      \::::::/    /              /:::/    /                            \:::\    \              \::::::/    /      
+       \::::/    /              /:::/    /                              \:::\____\              \::::/    /       
+        \::/____/               \::/    /                                \::/    /               \::/    /        
+         ~~                      \/____/                                  \/____/                 \/____/         
+                                                                                                                  
+
+
+
+==================================================================================================================
+                                      DATeS: Data Assimilation Testing Suite                                      
+==================================================================================================================
+
+DATeS is aimed to be a unified testing suite for data assimilation applications where researchers can collaborate, 
+so that it would be much easier to understand and compare different methodologies in different settings.
+  
+The core of DATeS is implemented in Python to enable for Object-Oriented capabilities. 
+The main functionalities, such as the models, the data assimilation algorithms, the linear algebra solvers, and 
+the time discretization routines are independent of each other, such as to offer maximum flexibility to configure 
+data assimilation applications.
+DATeS can interface easily with large third party models written in Fortran or C, & with various external solvers.
+
+==================================================================================================================

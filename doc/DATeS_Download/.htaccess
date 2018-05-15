@@ -1,0 +1,2 @@
+Options -Indexes
+AddType application/x-httpd-php .html .htm

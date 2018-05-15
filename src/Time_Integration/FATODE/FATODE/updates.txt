@@ -1,0 +1,47 @@
+
+-------------------------------------v102 updates-------------------------------
+1. ICNTRL(10) for RK FWD TLM ADJ changed
+2. ICNTRL(2) for ROS FWD TLM ADJ changed
+3. ICNTRL(12) for ROS TLM changed
+4. In ROS_TLM linear solver, method lapack_free, variable 'ip' has been added to deallocate method
+
+-------------------------------------v101 updates-------------------------------
+1. add the example CBM4 (a chemical kinetic model) demonstrating the sensitivity analysis with respect to system parameters;
+
+2. ifort has an additional option -mp to solve floating-point calculation consistency problem;
+
+3. fixed several bugs in rosenbrock adjoint integerators;
+
+4. move the development copy to svn server. 
+
+5. initialize the coefficient arrays explicitly to fix the possible bugs for windows users.
+
+6. corrected drdy argument list in ros_adj 
+
+7. add explicit interface for input subroutine ADJINIT since it constains optional arguments which may cause bugs (July 2013)
+
+8. correct the input argument list for two DRDY calls in ros_adj (July 2013)
+
+9. RY0 should be RY)(1,m) in ros_adj
+-------------------------------------v90 updates-------------------------------
+1. add the capability to evaluate the quadrature term in the cost function for the adjoint model.
+
+-------------------------------------v80 updates-------------------------------
+1. add a user-supplied function AdjInit() to initialize adjoint variables which is supposed to be called after forward run is over and before backward run starts.
+
+--------------------------------------v74 updates-------------------------------
+1. adjoint integrators can calculate the sensitivity of any derived function with respect to parameters;
+
+2. add a new example on a chemical kinetic problem to calculate the sensitivity of a quadrature function with respect to some coefficients in the formula; 
+
+3. Since SuperLU wrapper uses fortran index style (starting from 1) by default, sparse matrix in superlu module is changed back to fortran index style, which is different from that in umfpack module;
+
+4. combined two different versions of FATODE;
+
+5. add support for gfortran, lahey, sun fortran;
+
+6. incorpate explicit runge-kutta methods;
+
+7. add support for NAG fortran, absoft fortran (under Mac OS);
+
+8. change suffix f90 to F90.

@@ -1,0 +1,62 @@
+  !    -*- f90 -*-
+  ! Note: the context of this file is case sensitive.
+  
+ python module integrate_fwd__user__routines 
+  interface integrate_fwd_user_interface 
+     subroutine fun(n,t,y,f)
+       integer, optional,intent(in),check(len(y)==n),depend(y) :: n=len(y)
+       double precision, intent(in) :: t
+       double precision, dimension(n), intent(in) :: y
+       double precision, dimension(n), intent(inout) :: f
+     end subroutine fun
+  end interface integrate_fwd_user_interface
+end python module integrate_fwd__user__routines
+
+python module erkfwd
+  module erk_f90_integrator ! in ERK_f90_Integrator.F90
+    integer, public,parameter :: ntexit=1
+    integer, public,parameter :: nacc=4
+    integer, public,parameter :: nfun=1
+    integer, public,parameter :: njac=2
+    integer, public,parameter :: nhnew=3
+    integer, public,parameter :: nrej=5
+    integer, public,parameter :: ndec=6
+    integer, public,parameter :: nsng=8
+    integer, public,parameter :: nstp=3
+    integer, public,parameter :: nsol=7
+    integer, public,parameter :: nhexit=2
+    subroutine integrate(tin,tout,nvar,var,rtol,atol,fun,icntrl_u,rcntrl_u,istatus_u,rstatus_u,ierr_u) ! in ERK_f90_Integrator.F90:erk_f90_integrator
+      use integrate_fwd__user__routines
+      double precision intent(in) :: tin
+      double precision intent(in) :: tout
+      integer, optional,intent(in),check(len(var)>=nvar),depend(var) :: nvar=len(var)
+      double precision dimension(nvar),intent(inout) :: var
+      double precision dimension(nvar),intent(in) :: rtol
+      double precision dimension(nvar),intent(in) :: atol
+      external fun
+      integer, dimension(20),intent(in) :: icntrl_u
+      double precision, dimension(20),intent(in) :: rcntrl_u
+      integer, dimension(20) :: istatus_u
+      double precision, dimension(20) :: rstatus_u
+      integer :: ierr_u
+    end subroutine integrate
+    subroutine erk(nvar,tinitial,tfinal,y,reltol,abstol,fun,rcntrl,icntrl,rstatus,istatus,ierr) ! in ERK_f90_Integrator.F90:erk_f90_integrator
+      use integrate_fwd__user__routines
+      integer, optional,intent(in),check(len(y)>=nvar),depend(y) :: nvar=len(y)
+      double precision intent(in) :: tinitial
+      double precision intent(in) :: tfinal
+      double precision dimension(nvar),intent(inout) :: y
+      double precision dimension(nvar),intent(in) :: reltol
+      double precision dimension(nvar),intent(in) :: abstol
+      external fun
+      double precision dimension(20),intent(in) :: rcntrl
+      integer dimension(20),intent(in) :: icntrl
+      double precision dimension(20) :: rstatus
+      integer dimension(20),intent(inout) :: istatus
+      integer :: ierr
+    end subroutine erk
+  end module erk_f90_integrator
+end python module erkfwd
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

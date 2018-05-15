@@ -1,0 +1,103 @@
+%=========================================================================%
+To create samples you need to install NetCDF or download the samples from
+enkf-matlab website.
+%=========================================================================%
+To create the samples:
+   1- Read the README file and follow the instructions in it.
+   2- Either run the .m files in matlab to convert the netcdf files to 
+      .mat files as used by the model here, or write an equvalent python
+      script. It's not mandatory now, so I will skip it. 
+      I tested the process though! PS: It took me 2 days :D
+%=========================================================================%
+
+
+
+
+%=========================================================================%
+Some temporary notes while wrapping FORTRAN code and translating MATLAB code.
+%=========================================================================% 
+% Parameters files:
+%========================
+%>>>>>>>>> 
+% 1- prm/*.prm: number of example parameter files for running a number of
+%>>>>>>>>>      particular systems. These files may be used as templates 
+%               for your particular needs. Most of the fields can be freely
+%               changed, others are not supposed to be changed.
+% 
+% >Parameter:     Value                 Needed by the Model
+%_______________________________________________________
+% method          ETKF                           No  : assimilation method
+% rotate          0                              No  : period of ensemble rotation
+% model           QG                             Yes 
+% inflation       1.14                           No  : inflation multiple for observed elements
+% n               16641                          Yes : the state vector length for one variable
+% p               300                            Yes : number of obs at each assimilation cycle
+% p_batchsize     0                              ?
+% m               25                             No  : ensemble size
+% nstep           1000                           No  : number of model steps in the run
+% assim_step      10                             No  : number of model steps per assimilation step
+% obs_spacing     urandom                        Yes : regular, random, urandom (regular with random offset at each assimilation)
+% obs_variance    4                              Yes : observation variance
+% loc_len         15                             Yes : localisation length
+% loc_method	  LA                             Yes : localisatopn methon (Cf'*, 'LA')
+% rmse_max        100                            No  : max allowed analysis rmse (divergence criterion)
+% read_ens        1                              No  : whether to read ensemble from the file saved during the last run (0, 1*)
+% plot_diag       1                              No  :
+% plot_diag_np    100                            No  :
+% plot_state      1                              No  :
+% rank_elem       1                              No  : state vector element to be used for calculating rank diagrams (1*)
+% verbose         2                              ?
+% randomise       0                              ?
+% seed            1                              ?
+% customprmfname  prm/custom/prm-custom-QG.txt   Yes : name of the model-dependent parameter file; do not confuse with the model parameter file!
+%_______________________________________________________
+% 
+%>>>>>>>> 
+% 2- prm/custom/<MODEL*>.prm: custom parameter files with particular suggested 
+%>>>>>>>>              setups for each model. 
+%     These include:
+%       prm-custom-LA.txt
+%       prm-custom-L3.txt
+%       prm-custom-L40.txt
+%       prm-custom-L40p.txt
+%       prm-custom-QG.txt
+%     There is no need to edit those unless you want to change the system 
+%     behaviour;
+%   - parameter files for the full-size QG model (129 x 129):
+%       QG.prm
+%       QG-ens.prm
+%   - parameter file for QGs - "small" QG model (65 x 65):
+%       QGs.prm
+%   - parameter file for QGt - "tiny" QG model (33 x 33):
+%       QGt.prm
+% 
+%     Modifying parameter files for the QG model changes the model behaviour. 
+%     Do not touch them unless you have a specific reason for that.
+% 
+%>>>>>>>> 
+% 2- prm/custom/<prm-custom*>.prm: These include:
+%>>>>>>>>
+% 
+% fname_parameters_true prm/custom/QGt.prm        : file containing ?
+% fname_parameters_ens  prm/custom/QGt.prm        : file containing ?
+% fname_samples_true    samples/QGt_samples.mat   : file containing ?
+% fname_samples_ens     samples/QGt_samples.mat   : file containing ?
+%=========================================================================%
+
+
+
+
+
+%=========================================================================%
+% Notes on running QG:
+%========================
+% 1- To run systems with QG model you need to produce initial ensemble 
+%    or download it from http://enkf.nersc.no/Code/EnKF-Matlab/QG_samples.
+% 2- In the original code: QGs model has the nominal state size of 4225, 
+%    versus 16641 for (full) QG. Also, QGt model has the nominal state 
+%    size of  only 1089. Unlike QG and QGt, you must be able to run this
+%    model "out of the box"
+% 
+
+
+%=========================================================================%

@@ -1,0 +1,87 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module integrate_adj__user__routines 
+    interface integrate_adj_user_interface 
+       subroutine fun(n,t,y,f)
+         integer, optional,intent(in),check(len(y)==n),depend(y) :: n=len(y)
+         double precision, intent(in) :: t
+         double precision, dimension(n), intent(in) :: y
+         double precision, dimension(n), intent(inout) :: f
+       end subroutine fun
+
+       subroutine jac(n,t,y,fjac)
+         integer, optional,intent(in),check(len(y)==n),depend(y) :: n=len(y)
+         double precision,intent(in) :: t
+         double precision, dimension(n), intent(in) :: y
+         double precision, dimension(n,n), intent(inout) :: fjac
+       end subroutine jac
+
+       subroutine adjinit(n,nadj,t,y,lambda_) ! in :erkadj:erk_adj_f90_integrator.f90:erk_adj_f90_integrator:integrate_adj:unknown_interface
+         integer, optional,intent(in),check(len(y)==n),depend(y) :: n=len(y)
+         integer, optional,intent(in),check(shape(lambda_,1)==nadj),depend(lambda_) :: nadj=shape(lambda_,1)
+         double precision, intent(in) :: t
+         double precision, dimension(n),intent(in) :: y
+         double precision, dimension(n,nadj),intent(inout) :: lambda_
+       end subroutine adjinit
+     end interface integrate_adj_user_interface
+end python module integrate_adj__user__routines
+
+python module erkadj ! in 
+    interface  ! in :erkadj
+        module erk_adj_f90_integrator ! in :erkadj:ERK_ADJ_f90_Integrator.F90
+            integer, public,parameter :: nacc=4
+            integer, public,parameter :: nfun=1
+            integer, public,parameter :: njac=2
+            integer, public,parameter :: nhnew=3
+            integer, public,parameter :: nrej=5
+            integer, public,parameter :: ndec=6
+            integer, public,parameter :: nsng=8
+            integer, public,parameter :: nstp=3
+            integer, public,parameter :: nsol=7
+            integer, public,parameter :: ntexit=1
+            integer, public,parameter :: nhexit=2
+            subroutine integrate_adj(nvar,nadj,y,lambda_,tin,tout,atol,rtol,fun,jac,adjinit,icntrl_u,rcntrl_u,istatus_u,rstatus_u,ierr_u) ! in :erkadj:ERK_ADJ_f90_Integrator.F90:erk_adj_f90_integrator
+                use integrate_adj__user__routines
+                integer, optional, intent(in),check(len(y)==nvar), depend(y) :: nvar=len(y)
+                integer, optional, intent(in),check(shape(lambda_,1)==nadj), depend(lambda_) :: nadj=shape(lambda_,1)
+                double precision dimension(nvar),intent(inout) :: y
+                double precision dimension(nvar,nadj),intent(inout) :: lambda_
+                double precision intent(in) :: tin
+                double precision intent(in) :: tout
+                double precision dimension(nvar),intent(in) :: atol
+                double precision dimension(nvar),intent(in) :: rtol
+                external fun
+                external jac
+                external adjinit
+                integer, dimension(20),intent(in) :: icntrl_u
+                double precision, dimension(20),intent(in) :: rcntrl_u
+                Integer, intent(inout), Dimension(20) :: istatus_u
+                Double Precision, intent(inout), Dimension(20) :: rstatus_u
+                integer :: ierr_u
+            end subroutine integrate_adj
+            subroutine erkadj2(n,nadj,tinitial,tfinal,y,lambda_,fun,jac,adjinit,reltol,abstol,rcntrl,icntrl,rstatus,istatus,ierr) ! in :erkadj:ERK_ADJ_f90_Integrator.F90:erk_adj_f90_integrator
+               use integrate_adj__user__routines
+                integer, optional,intent(in),check(len(y)==n),depend(y) :: n=len(y)
+                integer, optional,intent(in),check(shape(lambda_,1)==nadj),depend(lambda_) :: nadj=shape(lambda_,1)
+                double precision intent(in) :: tinitial
+                double precision intent(in) :: tfinal
+                double precision dimension(n),intent(inout) :: y
+                double precision dimension(n,nadj),intent(inout) :: lambda_
+                external fun
+                external jac
+                external adjinit
+                double precision dimension(n),intent(in) :: reltol
+                double precision dimension(n),intent(in) :: abstol
+                double precision dimension(20),intent(in) :: rcntrl
+                integer dimension(20),intent(in) :: icntrl
+                double precision dimension(20) :: rstatus
+                integer dimension(20),intent(inout) :: istatus
+                integer :: ierr
+            end subroutine erkadj2
+        end module erk_adj_f90_integrator
+    end interface 
+end python module erkadj
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/

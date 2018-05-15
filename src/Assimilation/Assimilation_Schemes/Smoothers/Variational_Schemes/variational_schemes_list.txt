@@ -1,0 +1,32 @@
+#======================================================================================================================#
+#                                                                                                                      #
+# This file contains a list of all VARIATIONAL assimilation schemes incorporated in DATeS.                             #
+# lines starting with '#' are taken as comments lines.                                                                 #
+# You can add new VARIATIONAL assimilation scheme manually, but we recommend adding new SCHEME using suitable driver.  #
+#                                                                                                                      #
+# To add a VARIATIONAL scheme to the list:                                                                             #
+# -----------------------------------                                                                                  #
+#      1- Make sure the VARIATIONAL scheme does not exist in the list (or chose a new name and a new directory),       #
+#      2- Copy your source code into a new directory (respect the forest structure logic),                             #
+#      3- Add the new VARIATIONAL scheme info as described in the table below.                                         #
+#      Remarks:                                                                                                        #
+#      ~~~~~~~~                                                                                                        #
+#           i   - Make sure you add a VARIATIONAL scheme name.                                                         #
+#           ii  - If the source codes incorporate different language, list all (comma-separated) e.g. C,C++,Fortran).  #
+#           iii - The 'variational_scheme_relative_path                                                                #
+#           iv  - Adding the code manually, means, you need to take care of the interfacing yourself!                  #
+#           v   - Don't remove the line starting with '[start_table]' or you will miss this header!                    #
+#                                                                                                                      #
+#======================================================================================================================#
+
+
+
+
+[start_table]
+# -------------------------------------------------------------------------------------------------------------------- #
+#  Id   | variational scheme name       | Source code language(s)     | variational scheme relative path               #
+# -------------------------------------------------------------------------------------------------------------------- #
+   001  | 3D-Var                        | Python                      | src/variational/TDVar
+   002  | 4D-Var                        | Python                      | src/variational/FDVar
+# -------------------------------------------------------------------------------------------------------------------- #
+[end_table]

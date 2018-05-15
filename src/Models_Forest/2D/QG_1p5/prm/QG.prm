@@ -1,0 +1,15 @@
+&parameters
+  restartfname = ''
+  scheme = 'rk4'
+  verbose = 1
+  F = 1600
+  RKH2 = 2e-12
+  tend = 0
+  dtout = 1.25
+  R = 1e-05
+  rstart = 0
+  RKB = 0
+  dt = 1.25
+  outfname = ''
+  RKH = 0
+/

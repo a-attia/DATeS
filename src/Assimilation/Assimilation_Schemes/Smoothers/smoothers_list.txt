@@ -1,0 +1,33 @@
+#======================================================================================================================#
+#                                                                                                                      #
+# This file contains a list of all SMOOTHERS incorporated in DATeS.                                                    #
+# lines starting with '#' are taken as comments lines.                                                                 #
+# You can add new SMOOTHERS manually, but we recommend adding new SMOOTHERS using suitable driver.                     #
+#                                                                                                                      #
+# To add a SMOOTHER to the list:                                                                                       #
+# ------------------------------                                                                                       #
+#      1- Make sure the SMOOTHER does not exist in the list (or chose a new name and a new directory),                 #
+#      2- Copy your source code into a new directory (respect the forest structure logic),                             #
+#      3- Add the new SMOOTHER info as described in the table below.                                                   #
+#      Remarks:                                                                                                        #
+#      ~~~~~~~~                                                                                                        #
+#           i   - Make sure you add a SMOOTHER name.                                                                   #
+#           ii  - If the source codes incorporate different language, list all (comma-separated) e.g. C,C++,Fortran).  #
+#           iii - The 'smoother_relative_path                                                                          #
+#           iv  - Adding the code manually, means, you need to take care of the interfacing yourself!                  #
+#           v   - Don't remove the line starting with '[start_table]' or you will miss this header!                    #
+#                                                                                                                      #
+#======================================================================================================================#
+
+
+
+
+[start_table]
+# -------------------------------------------------------------------------------------------------------------------- #
+#  Id   | smoother name            | Source code language(s)     | smoother relative path                              #
+# -------------------------------------------------------------------------------------------------------------------- #
+   001  | EnKS                     | Python                      | src/smoothers/EnKS                                  #
+   002  | 4D-VAR                   | Python                      | src/smoothers/FD_VAR                                #
+   003  | HMC                      | Python                      | src/smoothers/HMC                                   #
+# -------------------------------------------------------------------------------------------------------------------- #
+[end_table]
