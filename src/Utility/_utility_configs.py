@@ -618,3 +618,11 @@ def write_dicts_to_config_file(file_name, out_dir, dicts, sections_headers):
     #
 
 
+def read_configs(filenames):
+    """
+    Creates a configuration parser, and return the result of .read(filenames)
+    """
+    parser = ConfigParser.ConfigParser()
+    read_list = parser.read(filenames)
+    return read_list, parser
+

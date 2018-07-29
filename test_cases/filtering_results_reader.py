@@ -1,6 +1,28 @@
 #!/usr/bin/env python
 
-# This is a script to read the ouptput of EnKF, and HMC filter.
+
+"""
+============================================================================================
+=                                                                                          =
+=   DATeS: Data Assimilation Testing Suite.                                                =
+=                                                                                          =
+=   Copyright (C) 2016  A. Sandu, A. Attia, P. Tranquilli, S.R. Glandon,                   =
+=   M. Narayanamurthi, A. Sarshar, Computational Science Laboratory (CSL), Virginia Tech.  =
+=                                                                                          =
+=   Website: http://csl.cs.vt.edu/                                                         =
+=   Phone: 540-231-6186                                                                    =
+=                                                                                          =
+=   This program is subject to the terms of the Virginia Tech Non-Commercial/Commercial    =
+=   License. Using the software constitutes an implicit agreement with the terms of the    =
+=   license. You should have received a copy of the Virginia Tech Non-Commercial License   =
+=   with this program; if not, please contact the computational Science Laboratory to      =
+=   obtain it.                                                                             =
+=                                                                                          =
+============================================================================================
+
+"""
+
+# This is a script to read and plot the ouptput of EnKF flavors, and HMC filter.
 
 import os
 import sys
@@ -8,14 +30,23 @@ import ConfigParser
 import numpy as np
 import scipy.io as sio
 import warnings
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 
+import re
+
+try:
+    import cpickle
+except:
+    import cPickle as pickle
+
 import dates_setup
 dates_setup.initialize_dates()
-
+#
 import dates_utility as utility
 #
+
 
 def_r_script_str = """
 cwd <- getwd()
@@ -58,29 +89,47 @@ rm('analysis_mardiaTest_results')
 rm('contents')
 
 """
+# Example on how to change things recursively in output_dir_structure.txt file:
+# find . -type f -name 'output_dir_structure.txt' -exec sed -i '' s/nfs2/Users/ {} +
 
 def read_filter_output(out_dir_tree_structure_file, apply_statisticsl_tests=False):
     """
     Read the output of a filter (EnKF, HMC so far) from one or more cycles.
 
-    :param out_dir_tree_structure_file: the file in which output directory structure is saved as a config-file.
-            out_dir_tree_structure = dict(file_output_separate_files=file_output_separate_files,
-                                          file_output_directory=file_output_directory,
-                                          model_states_dir=model_states_dir,
-                                          observations_dir=observations_dir,
-                                          filter_statistics_dir=filter_statistics_dir,
-                                          cycle_prefix=cycle_prefix
-                                         )
-    :return:
-            reference_states,
-            forecast_ensembles,
-            forecast_means,
-            analysis_ensembles,
-            analysis_means,
-            observations
+    Args:
+        out_dir_tree_structure_file: the file in which output directory structure is saved as a config-file.
+        out_dir_tree_structure = dict(file_output_separate_files=file_output_separate_files,
+                                      file_output_directory=file_output_directory,
+                                      model_states_dir=model_states_dir,
+                                      observations_dir=observations_dir,
+                                      filter_statistics_dir=filter_statistics_dir,
+                                      cycle_prefix=cycle_prefix)
+        apply_statisticsl_tests: Apply, e.g. Mardia, tests of Gaussianity
+
+    Returns:
+        cycle_prefix:
+        num_cycles:
+        reference_states:
+        forecast_ensembles:
+        forecast_means:
+        analysis_ensembles:
+        analysis_means:
+        observations:
+        forecast_times:
+        analysis_times:
+        observations_times:
+        forecast_rmse:
+        analysis_rmse:
+        filter_configs:
+        gmm_results:
+        model_configs:
+        mardiaTest_results:
+        inflation_opt_results:
+        localization_opt_results:
+
     """
     # TODO: Currently I am making the reader aware that each cycle the prior can change
-    
+
     if not os.path.isfile(out_dir_tree_structure_file):
         raise IOError("File Not Found!")
 
@@ -115,11 +164,12 @@ def read_filter_output(out_dir_tree_structure_file, apply_statisticsl_tests=Fals
     # Now start reading based on the structure read from configuration file
     # Will assume we have mat files containing results as instructed by QG1.5 with full ensembles saved
 
-
     model_configs_parser = ConfigParser.ConfigParser()
     model_configs_parser.read(os.path.join(file_output_directory, 'setup.dat'))
     section_header = 'Model Configs'
     if not model_configs_parser.has_section(section_header):
+        print("Check File: ", os.path.join(file_output_directory, 'setup.dat'))
+        print("Secitons found", model_configs_parser.sections())
         raise KeyError("Couldn't find the proper section header [%s]" % section_header)
     else:
         options = model_configs_parser.options(section_header)
@@ -134,7 +184,7 @@ def read_filter_output(out_dir_tree_structure_file, apply_statisticsl_tests=Fals
                         pass
                     else:
                         print("ValueError exception raised while reading %s\n retrieved '%s' as a string!" %(option, option_val))
-                
+
             elif option in ['state_size', 'background_errors_covariance_localization_radius',
                             'model_errors_steps_per_model_steps', 'observation_vector_size', 'nx', 'ny', 'mrefin']:
                 try:
@@ -184,7 +234,7 @@ def read_filter_output(out_dir_tree_structure_file, apply_statisticsl_tests=Fals
                 option_val = filter_config_parser.getboolean(section_header, option)
             elif option == 'ensemble_size':
                 option_val = filter_config_parser.getint(section_header, option)
-            elif option in ['prior_distribution', 'filter_name']:
+            elif option in ['prior_distribution', 'filter_name', 'localization_function']:
                 option_val = filter_config_parser.get(section_header, option)
             # elif option == 'filter_statistics':
             #     option_val = eval(filter_config_parser.get(section_header, option))
@@ -261,7 +311,7 @@ def read_filter_output(out_dir_tree_structure_file, apply_statisticsl_tests=Fals
         else:
             print("state_size is of unrecognized type %s" %Type(state_size))
             raise TypeError
-            
+
         # create place-holders for state ensembles
         reference_states = np.empty((state_size, num_cycles))
         forecast_means = np.empty((state_size, num_cycles))
@@ -287,7 +337,7 @@ def read_filter_output(out_dir_tree_structure_file, apply_statisticsl_tests=Fals
             else:
                 print("observation_size is of unrecognized type %s" %Type(observation_size))
                 raise TypeError
-                
+
             observations = np.empty((observation_size, num_cycles))
         else:
             observations = None
@@ -300,15 +350,19 @@ def read_filter_output(out_dir_tree_structure_file, apply_statisticsl_tests=Fals
     # read times and RMSE results:
     rmse_file_name = 'rmse.dat'
     rmse_file_path = os.path.join(filter_statistics_dir, rmse_file_name)
-    rmse_file_contents = np.loadtxt(rmse_file_path, skiprows=2)
-    observations_times = rmse_file_contents[:, 0]
-    forecast_times = rmse_file_contents[:, 1]
-    analysis_times = rmse_file_contents[:, 2]
-    forecast_rmse = rmse_file_contents[:, 3]
-    analysis_rmse = rmse_file_contents[:, 4]
+    observations_times, forecast_times, analysis_times, forecast_rmse, analysis_rmse = read_rmse_results(rmse_file_path)
+
     if apply_statisticsl_tests:
         mardiaTest_results = {}
 
+    # Optimization results for OED-Aaptive EnKF
+    inflation_opt_results = []
+    localization_opt_results = []
+    inf_opt_results_file = 'inflation_opt_results.p'
+    loc_opt_results_file = 'localization_opt_results.p'
+
+
+    # Filter configs
     section_header = 'Filter Configs'
     # read states and observations
     for suffix in xrange(num_cycles):
@@ -351,7 +405,7 @@ def read_filter_output(out_dir_tree_structure_file, apply_statisticsl_tests=Fals
                 with open(r_script_name, 'w') as file:
                     file.write(r_script_text)
                 os.system("R CMD BATCH %s" % r_script_name)
-                
+
                 # Now read normality test results from output file
                 r_out_file_name = r_script_name + 'out'
                 with open(r_out_file_name) as r_output_f:
@@ -388,7 +442,7 @@ def read_filter_output(out_dir_tree_structure_file, apply_statisticsl_tests=Fals
                             forecast_mardiaTest_results.update({'Result': line_r_out_text[1].strip(' ')})
                         else:
                             pass
-                    
+
                     analysis_mardiaTest_results = dict()
                     for r_out_ln_ind in xrange(mardia_header_indices[0]+1, mardia_header_indices[1]):
                         line_r_out_text = r_out_text[r_out_ln_ind].strip('\n').split(':')
@@ -413,14 +467,14 @@ def read_filter_output(out_dir_tree_structure_file, apply_statisticsl_tests=Fals
                         else:
                             pass
 
-                    mardiaTest_results[cycle_dir] = dict(forecast_mardiaTest_results=forecast_mardiaTest_results, 
+                    mardiaTest_results[cycle_dir] = dict(forecast_mardiaTest_results=forecast_mardiaTest_results,
                                                          analysis_mardiaTest_results=analysis_mardiaTest_results
                                                          )
                     # remove the R script file
                     os.remove(r_script_name)
                     os.chdir(cwd)
             else:
-                mardiaTest_results = None                
+                mardiaTest_results = None
 
         else:
             mardiaTest_results = None
@@ -443,7 +497,20 @@ def read_filter_output(out_dir_tree_structure_file, apply_statisticsl_tests=Fals
             contents = sio.loadmat(os.path.join(observations_dir, cycle_dir, 'observation.mat'))
             observations[:, suffix]= contents['Obs'][:, 0].copy()
 
+        #
+        # Read adaptive inflation and localization results:
+        inf_opt_path = os.path.join(model_states_dir, cycle_dir, inf_opt_results_file)
+        if os.path.isfile(inf_opt_path):
+            inf_opt_dict = pickle.load(open(inf_opt_path, 'rb'))
+            inflation_opt_results.append((suffix, inf_opt_dict))
+        #
+        loc_opt_path = os.path.join(model_states_dir, cycle_dir, loc_opt_results_file)
+        if os.path.isfile(loc_opt_path):
+            loc_opt_dict = pickle.load(open(loc_opt_path, 'rb'))
+            localization_opt_results.append((suffix, loc_opt_dict))
+        #
 
+        #
         if gmm_results is not None:
             # read gmm_results in the case of a GMM prior
             gmm_configs = ConfigParser.ConfigParser()
@@ -484,13 +551,25 @@ def read_filter_output(out_dir_tree_structure_file, apply_statisticsl_tests=Fals
     #
     return cycle_prefix, num_cycles, reference_states, forecast_ensembles, forecast_means, analysis_ensembles, \
            analysis_means, observations, forecast_times, analysis_times, observations_times, \
-           forecast_rmse, analysis_rmse, filter_configs, gmm_results, model_configs, mardiaTest_results
+           forecast_rmse, analysis_rmse, filter_configs, gmm_results, model_configs, mardiaTest_results, inflation_opt_results, localization_opt_results
 
 
-
+def read_rmse_results(rmse_file_path):
+    # read times and RMSE results:
+    rmse_file_contents = np.loadtxt(rmse_file_path, skiprows=2)
+    observations_times = rmse_file_contents[:, 0]
+    forecast_times = rmse_file_contents[:, 1]
+    analysis_times = rmse_file_contents[:, 2]
+    forecast_rmse = rmse_file_contents[:, 3]
+    analysis_rmse = rmse_file_contents[:, 4]
+    #
+    return observations_times, forecast_times, analysis_times, forecast_rmse, analysis_rmse
 
 #
 if __name__ == '__main__':
+
+    show_plots = True
+
     # =====================================================================
     input_args = sys.argv
     if len(input_args) > 2:
@@ -509,9 +588,11 @@ if __name__ == '__main__':
     # =====================================================================
     cycle_prefix, num_cycles, reference_states, forecast_ensembles, forecast_means, analysis_ensembles, \
     analysis_means, observations, forecast_times, analysis_times, observations_times, \
-    forecast_rmse, analysis_rmse, filter_configs, gmm_results, model_configs, mardiaTest_results = read_filter_output(out_dir_tree_structure_file)
+    forecast_rmse, analysis_rmse, filter_configs, gmm_results, model_configs, mardiaTest_results,  \
+    inflation_opt_results, localization_opt_results = read_filter_output(out_dir_tree_structure_file)
     #
     filter_name = filter_configs['filter_name']
+    filter_name = filter_name.replace('_', ' ')
     model_name = model_configs['model_name']
     try:
         state_size = model_configs['state_size']
@@ -526,47 +607,312 @@ if __name__ == '__main__':
         moments_only = False
     # =====================================================================
 
+
+    #
+    # =====================================================================
+    # General Plotting settings
+    # =====================================================================
+    # Font, and Texts:
+    font_size = 20
+    font = {'family' : 'normal',
+            'weight' : 'bold',
+            'size'   : font_size}
+    #
+    matplotlib.rc('font', **font)
+    matplotlib.rc('text', usetex=True)
+
+    # Drawing Lines:
+    line_width = 2
+    marker_size = 4
+
+    # set colormap:
+    colormap = None  # 'jet'  # vs 'jet'
+    # plt.set_cmap(colormap)
+
+    interpolation = None  # 'bilinear'
+
+    # =====================================================================
+
+
     #
     # =====================================================================
     # Plot RMSE
     # =====================================================================
-    log_scale = False
-    font_size = 8
-    line_width = 2
-    marker_size = 4
-    font = {'weight': 'bold', 'size': font_size}
-    #
+    log_scale = True
     fig1 = plt.figure(facecolor='white')
-    plt.rc('font', **font)
     #
     if log_scale:
         plt.semilogy(forecast_times, forecast_rmse, 'r--o', linewidth=line_width, label='Forecast')
         plt.semilogy(analysis_times, analysis_rmse, 'bd-', linewidth=line_width, label=filter_name)
+
     else:
         plt.plot(forecast_times, forecast_rmse, 'r--o', linewidth=line_width, label='Forecast')
         plt.plot(analysis_times, analysis_rmse, 'bd-', linewidth=line_width, label=filter_name)
+
     #
     # Set lables and title
-    plt.xlabel('Time',fontsize=font_size, fontweight='bold')
+    plt.xlabel("Time (Assimilation cycles)")
     if log_scale:
         plt.ylabel('log-RMSE', fontsize=font_size, fontweight='bold')
     else:
         plt.ylabel('RMSE', fontsize=font_size, fontweight='bold')
     plt.title('RMSE results for the model: %s' % model_name)
     #
-    xlables = [forecast_times[i] for i in xrange(0, len(forecast_times), 10)]
-    plt.xticks(xlables, 10*np.arange(len(xlables)))
+    skips = max(1, len(forecast_times) / 10)   # - (len(forecast_times) % 10)
+    xlables = [forecast_times[i] for i in xrange(0, len(forecast_times), skips)]
+    plt.xticks(xlables, skips*np.arange(len(xlables)))
     # show the legend, show the plot
-    plt.legend(loc='upper left')
+    plt.legend(loc='best')
     plt.draw()
+    # =====================================================================
+
+
+    #
+    # =====================================================================
+    # Adaptive Inflation and/or localization results
+    # =====================================================================
+    #
+
+    if len(inflation_opt_results) > 0:
+        if len(analysis_times)-1 != len(inflation_opt_results):
+            print("Check len(inflation_opt_results), and len(forecast_times)")
+            print("len(inflation_opt_results)", len(inflation_opt_results))
+            print("len(forecast_times)", len(analysis_times)-1)
+            raise ValueError
+
+        inflation_stats = np.zeros((5, len(inflation_opt_results)))
+        # first row:  optimal objective (without regularization)
+        # second row: optimal objective (with regularization)
+        # third row:  L2 norm of optimal solution
+        # fourth row: average inflation factor
+        # fifth row:  standard deviation inflation factor
+        #
+        optimal_sols = []  # rounded, and moving average might be applied
+        original_optimal_sols = []
+        for i in xrange(len(inflation_opt_results)):
+            post_trace = inflation_opt_results[i][1]['post_trace']
+            min_f = inflation_opt_results[i][1]['min_f']
+            opt_x = inflation_opt_results[i][1]['opt_x']
+            orig_opt_x = inflation_opt_results[i][1]['orig_opt_x']
+            optimal_sols.append(opt_x)
+            original_optimal_sols.append(orig_opt_x)
+            l2_norm = np.linalg.norm(opt_x)
+            avrg = np.mean(opt_x)
+            stdev = np.std(opt_x)
+            inflation_stats[:, i] = post_trace, min_f, l2_norm, avrg, stdev
+
+        #
+        log_scale = False
+        #
+        _, ax_adap_inf = plt.subplots(facecolor='white')
+        #
+        if log_scale:
+            ax_adap_inf.semilogy(analysis_times[1:], inflation_stats[0, :], 'bd-', linewidth=line_width, label=r"$Trace(\widetilde{\mathbf{A}})$")
+            ax_adap_inf.semilogy(analysis_times[1:], inflation_stats[1, :], 'gd-', linewidth=line_width, label="optimal objective")
+            # ax_adap_inf.semilogy(analysis_times[1:], inflation_stats[2, :], 'r-.', linewidth=line_width, label=r"$\|\mathbf{\alpha}\|$")
+            ax_adap_inf.semilogy(analysis_times[1:], inflation_stats[3, :], 'c--', linewidth=line_width, label=r"$\overline{\mathbf{\alpha}}$")
+            ax_adap_inf.semilogy(analysis_times[1:], inflation_stats[4, :], 'm--', linewidth=line_width, label=r"$\sigma_{\mathbf{\alpha}}$")
+        else:
+            ax_adap_inf.plot(analysis_times[1:], inflation_stats[0, :], 'bd-', linewidth=line_width, label=r"$Trace(\widetilde{\mathbf{A}})$")
+            ax_adap_inf.plot(analysis_times[1:], inflation_stats[1, :], 'gd-', linewidth=line_width, label="optimal objective")
+            # ax_adap_inf.plot(analysis_times[1:], inflation_stats[2, :], 'r-.', linewidth=line_width, label=r"$\|\mathbf{L}\|$")
+            ax_adap_inf.plot(analysis_times[1:], inflation_stats[3, :], 'c--', linewidth=line_width, label=r"$\overline{\mathbf{\alpha}}$")
+            ax_adap_inf.plot(analysis_times[1:], inflation_stats[4, :], 'm--', linewidth=line_width, label=r"$\sigma_{\mathbf{\alpha}}$")
+        #
+        # Set lables and title
+        ax_adap_inf.set_xlabel("Time (Assimilation cycles)")
+        ax_adap_inf.set_title('OED-Adaptive Inflation results for the model: %s' % model_name)
+        ax_adap_inf.set_xlim(analysis_times[0], analysis_times[-1])
+        #
+        skips = max(1, len(forecast_times) / 10)   # - (len(forecast_times) % 10)
+        xticks = [forecast_times[i] for i in xrange(0, len(forecast_times), skips)]
+        plt.xticks(xticks, skips*np.arange(len(xticks)))
+        # show the legend, show the plot
+        plt.legend(loc='best')
+        #
+        plt.draw()
+
+
+        # histogram of inflation factor
+        _, ax_adap_inf_hist = plt.subplots(facecolor='white')
+        data = np.asarray(optimal_sols).flatten()
+        weights = np.zeros_like(data) + 1.0 / data.size
+        ax_adap_inf_hist.hist(data, weights=weights, bins=50)
+        ax_adap_inf_hist.set_xlabel(r"Inflation factors $\alpha_i$")
+        ax_adap_inf_hist.set_ylabel("Relative frequency")
+        ax_adap_inf_hist.set_title("Smoothed; Rounded Solution")
+        plt.draw()
+
+        # Do the same for the original solution:
+        _, ax_adap_inf_hist = plt.subplots(facecolor='white')
+        data = np.asarray(original_optimal_sols).flatten()
+        weights = np.zeros_like(data) + 1.0 / data.size
+        ax_adap_inf_hist.hist(data, weights=weights, bins=50)
+        ax_adap_inf_hist.set_xlabel(r"Inflation factors $\alpha_i$")
+        ax_adap_inf_hist.set_ylabel("Relative frequency")
+        ax_adap_inf_hist.set_title("Original solution")
+        plt.draw()
+
+        # boxplots of inflation factors over time
+        _, ax_adap_inf_bplot = plt.subplots(facecolor='white')
+        ax_adap_inf_bplot.boxplot(original_optimal_sols, notch=True, patch_artist=True, sym='+', vert=1, whis=1.5)
+        ax_adap_inf_bplot.set_xlabel(r"Inflation factors $\alpha_i$")
+        #
+        skips = max(1, len(forecast_times) / 10)   # - (len(forecast_times) % 10)
+        xticks = [i for i in xrange(0, len(forecast_times), skips)]
+        ax_adap_inf_bplot.set_xticks(xticks)
+        ax_adap_inf_bplot.set_xticklabels(xticks)
+        plt.draw()
+
+        # colorplot/imagesec of inflation factors over space and time
+        fig_adap_inf_imsec, ax_adap_inf_imsec = plt.subplots(facecolor='white')
+        cax = ax_adap_inf_imsec.imshow(np.array(original_optimal_sols).squeeze().T, aspect='auto', interpolation=interpolation, cmap=colormap, origin='lower')
+        vmin, vmax = 0, state_size-1
+        # cbar = fig_adap_inf_imsec.colorbar(cax, ticks=np.arange(1,1.26, 0.05), orientation='vertical')
+        cbar = fig_adap_inf_imsec.colorbar(cax, orientation='vertical')
+        ax_adap_inf_imsec.set_xlabel("Time (Assimilation cycles)")
+        ax_adap_inf_imsec.set_ylabel("State variables")
+        # ax_adap_inf_imsec.set_yticks(np.arange(0, state_size, state_size/10))
+        ax_adap_inf_imsec.set_title("Inflation factors over space and time")
+        #
+        skips = max(1, len(forecast_times) / 10)   # - (len(forecast_times) % 10)
+        xticks = [i for i in xrange(0, len(forecast_times), skips)]
+        ax_adap_inf_imsec.set_xticks(xticks)
+        ax_adap_inf_imsec.set_xticklabels(xticks)
+        plt.draw()
+
+
+
+    if len(localization_opt_results)>0:
+        if len(analysis_times)-1 != len(localization_opt_results):
+            print("Check len(localization_opt_results), and len(forecast_times)")
+            print("len(localization_opt_results)", len(localization_opt_results))
+            print("len(forecast_times)", len(analysis_times)-1)
+            raise ValueError
+        localization_stats = np.zeros((5, len(localization_opt_results)))
+        # first row:  optimal objective (without regularization)
+        # second row: optimal objective (with regularization)
+        # third row:  L2 norm of optimal solution
+        # fourth row: average inflation factor
+        # fifth row:  standard deviation inflation factor
+        #
+        optimal_sols = []
+        original_optimal_sols = []
+        for i in xrange(len(localization_opt_results)):
+            post_trace = localization_opt_results[i][1]['post_trace']
+            min_f = localization_opt_results[i][1]['min_f']
+            opt_x = localization_opt_results[i][1]['opt_x']
+            orig_opt_x = localization_opt_results[i][1]['orig_opt_x']
+            # print("orig_opt_x: ", orig_opt_x)
+            optimal_sols.append(opt_x)
+            original_optimal_sols.append(orig_opt_x)
+            l2_norm = np.linalg.norm(opt_x)
+            avrg = np.mean(opt_x)
+            stdev = np.std(opt_x)
+            localization_stats[:, i] = post_trace, min_f, l2_norm, avrg, stdev
+
+        #
+        _, ax_adap_loc = plt.subplots(facecolor='white')
+        #
+        if log_scale:
+            ax_adap_loc.semilogy(analysis_times[1:], localization_stats[0, :], 'bd-', linewidth=line_width, label=r"$Trace(\widehat{ \mathbf{A}})$")
+            ax_adap_loc.semilogy(analysis_times[1:], localization_stats[1, :], 'gd-', linewidth=line_width, label="optimal objective")
+            # ax_adap_loc.semilogy(analysis_times[1:], localization_stats[2, :], 'r-.', linewidth=line_width, label=r"$\|\mathbf{\alpha}\|$")
+            ax_adap_loc.semilogy(analysis_times[1:], localization_stats[3, :], 'c--', linewidth=line_width, label=r"$\overline{\mathbf{\alpha}}$")
+            ax_adap_loc.semilogy(analysis_times[1:], localization_stats[4, :], 'm--', linewidth=line_width, label=r"$\sigma_{\mathbf{\alpha}}$")
+        else:
+            ax_adap_loc.plot(analysis_times[1:], localization_stats[0, :], 'bd-', linewidth=line_width, label=r"$Trace(\widehat{\mathbf{A}})$")
+            ax_adap_loc.plot(analysis_times[1:], localization_stats[1, :], 'gd-', linewidth=line_width, label="optimal objective")
+            # ax_adap_loc.plot(analysis_times[1:], localization_stats[2, :], 'r-.', linewidth=line_width, label=r"$\|\mathbf{L}\|$")
+            ax_adap_loc.plot(analysis_times[1:], localization_stats[3, :], 'c--', linewidth=line_width, label=r"$\overline{\mathbf{\ell_i}}$")
+            ax_adap_loc.plot(analysis_times[1:], localization_stats[4, :], 'm--', linewidth=line_width, label=r"$\sigma_{\mathbf{L}}$")
+        #
+        # Set lables and title
+        ax_adap_loc.set_xlabel("Time (Assimilation cycles)")
+        ax_adap_loc.set_title('OED-Adaptive Localization results for the model: %s' % model_name)
+        ax_adap_loc.set_xlim(analysis_times[0], analysis_times[-1])
+        #
+        skips = max(1, len(forecast_times) / 10)   # - (len(forecast_times) % 10)
+        xticks = [forecast_times[i] for i in xrange(0, len(forecast_times), skips)]
+        plt.xticks(xticks, skips*np.arange(len(xticks)))
+        # show the legend, show the plot
+        plt.legend(loc='best')
+        #
+
+        # TODO: Add plots for the original solution; not just rounded, and smoothed solution
+        # histogram of localization coefficients
+        _, ax_adap_loc_hist = plt.subplots(facecolor='white')
+        data = np.asarray(optimal_sols).flatten()
+        weights = np.zeros_like(data) + 1.0 / data.size
+        ax_adap_loc_hist.hist(data, weights=weights, bins=50)
+        ax_adap_loc_hist.set_xlabel(r"Localization parameters $\ell_i$")
+        ax_adap_loc_hist.set_ylabel("Relative frequency")
+        ax_adap_loc_hist.set_title("Smoothed; Rounded Solution")
+        plt.draw()
+
+        _, ax_adap_loc_hist = plt.subplots(facecolor='white')
+        data = np.asarray(original_optimal_sols).flatten()
+        weights = np.zeros_like(data) + 1.0 / data.size
+        ax_adap_loc_hist.hist(data, weights=weights, bins=50)
+        ax_adap_loc_hist.set_xlabel(r"Localization parameters $\ell_i$")
+        ax_adap_loc_hist.set_ylabel("Relative frequency")
+        ax_adap_loc_hist.set_title("Original Solution")
+        plt.draw()
+
+        # boxplots of localization coefficients over time
+        _, ax_adap_loc_bplot = plt.subplots(facecolor='white')
+        ax_adap_loc_bplot.boxplot(optimal_sols, notch=True, patch_artist=True, sym='+', vert=1, whis=1.5)
+        ax_adap_loc_bplot.set_xlabel("Time (Assimilation cycles)")
+        ax_adap_loc_bplot.set_ylabel(r"Localization parameters $\ell_i$")
+        #
+        skips = max(1, len(forecast_times) / 10)   # - (len(forecast_times) % 10)
+        xticks = [i for i in xrange(0, len(forecast_times), skips)]
+        ax_adap_loc_bplot.set_xticks(xticks)
+        ax_adap_loc_bplot.set_xticklabels(xticks)
+        # show the legend, show the plot
+        plt.draw()
+
+        _, ax_adap_loc_bplot = plt.subplots(facecolor='white')
+        ax_adap_loc_bplot.boxplot(original_optimal_sols, notch=True, patch_artist=True, sym='+', vert=1, whis=1.5)
+        ax_adap_loc_bplot.set_xlabel("Time (Assimilation cycles)")
+        ax_adap_loc_bplot.set_ylabel(r"Localization parameters $\ell_i$")
+        #
+        skips = max(1, len(forecast_times) / 10)   # - (len(forecast_times) % 10)
+        xticks = [i for i in xrange(0, len(forecast_times), skips)]
+        ax_adap_loc_bplot.set_xticks(xticks)
+        ax_adap_loc_bplot.set_xticklabels(xticks)
+        # show the legend, show the plot
+        plt.draw()
+
+
+
+        # colorplot/imagesec of localization parameters over space and time
+
+        fig_adap_loc_imsec, ax_adap_loc_imsec = plt.subplots(facecolor='white')
+        cax = ax_adap_loc_imsec.imshow(np.array(original_optimal_sols).squeeze().T, aspect='auto', interpolation=interpolation, cmap=colormap, origin='lower')
+        vmin, vmax = 0, state_size-1
+        # cbar = fig_adap_loc_imsec.colorbar(cax, ticks=np.arange(1,1.26, 0.05), orientation='vertical')
+        cbar = fig_adap_loc_imsec.colorbar(cax, orientation='vertical')
+        ax_adap_loc_imsec.set_xlabel("Time (Assimilation cycles)")
+        ax_adap_loc_imsec.set_ylabel("State variables")
+        # ax_adap_loc_imsec.set_yticks(np.arange(0, state_size, state_size/10))
+        ax_adap_loc_imsec.set_title("Localization parameters over space and time")
+
+        skips = max(1, len(forecast_times) / 10)   # - (len(forecast_times) % 10)
+        xticks = [i for i in xrange(0, len(forecast_times), skips)]
+        ax_adap_loc_imsec.set_xticks(xticks)
+        ax_adap_loc_imsec.set_xticklabels(xticks)
+        plt.draw()
+
+
     # =====================================================================
 
 
     # =====================================================================
     # Plot the results obtained from mardiaTest for forecast and analysis ensembles:
     # =====================================================================
-       
-        
+
+
     if mardiaTest_results is not None:
         g1p = np.empty((num_cycles, 2))  # first column for forecast, second for analysis ensemble
         chi_skew = np.empty((num_cycles, 2))  # first column for forecast, second for analysis ensemble
@@ -577,12 +923,12 @@ if __name__ == '__main__':
         p_value_skew = np.empty((num_cycles, 2))  # first column for forecast, second for analysis ensemble
         chi_small_skew = np.empty((num_cycles, 2))  # first column for forecast, second for analysis ensemble
         ensemble_multivariate_normal = np.empty((num_cycles, 2))  # first column for forecast, second for analysis ensemble
-        
+
         for cycle in xrange(num_cycles):
             cycle_name = cycle_prefix + str(cycle)
             forecast_mardiaTest_results = mardiaTest_results[cycle_name]['forecast_mardiaTest_results']
             analysis_mardiaTest_results = mardiaTest_results[cycle_name]['analysis_mardiaTest_results']
-            
+
             g1p[cycle, 0], g1p[cycle, 1] = forecast_mardiaTest_results['g1p'], analysis_mardiaTest_results['g1p']
             chi_skew[cycle, 0], chi_skew[cycle, 1] = forecast_mardiaTest_results['chi.skew'], analysis_mardiaTest_results['chi.skew']
             p_value_small[cycle, 0], p_value_small[cycle, 1] = forecast_mardiaTest_results['p.value.small'], analysis_mardiaTest_results['p.value.small']
@@ -591,21 +937,21 @@ if __name__ == '__main__':
             p_value_kurt[cycle, 0], p_value_kurt[cycle, 1] = forecast_mardiaTest_results['p.value.kurt'], analysis_mardiaTest_results['p.value.kurt']
             p_value_skew[cycle, 0], p_value_skew[cycle, 1] = forecast_mardiaTest_results['p.value.skew'], analysis_mardiaTest_results['p.value.skew']
             chi_small_skew[cycle, 0], chi_small_skew[cycle, 1] = forecast_mardiaTest_results['chi.small.skew'], analysis_mardiaTest_results['chi.small.skew']
-            
+
             if str.find(forecast_mardiaTest_results['Result'], 'not') != -1:
                 ensemble_multivariate_normal[cycle, 0] = 0
             else:
                 ensemble_multivariate_normal[cycle, 0] = 1
-                
+
             if str.find(analysis_mardiaTest_results['Result'], 'not') != -1:
                 ensemble_multivariate_normal[cycle, 1] = 0
             else:
                 ensemble_multivariate_normal[cycle, 1] = 1
-                
+
         # TODO: Ahmed start plotting here. You can add these results to the number of mixture components plot
-        font_size = 16
-        line_width = 4
-        marker_size = 8
+        font_size = 12
+        line_width = 2
+        marker_size = 4
         font = {'weight': 'bold', 'size': font_size}
         #
         fig = plt.figure(facecolor='white')
@@ -619,12 +965,12 @@ if __name__ == '__main__':
         plt.semilogy(np.arange(1, num_cycles+1), p_value_kurt[:,0], 'yd-', linewidth=line_width, markersize=marker_size, label='p-value.kurt')
         plt.semilogy(np.arange(1, num_cycles+1), p_value_skew[:,0], 'kd-', linewidth=line_width, markersize=4+marker_size, label='p-value.skew')
         # plt.plot(np.arange(1, num_cycles+1), ensemble_multivariate_normal[:,0], color='#64B5CD' , marker='>', linewidth=line_width, markersize=4+marker_size, label='Gaussian')
-        
+
         # show the legend, show the plot
         plt.legend()
         #
         # Set lables and title
-        plt.xlabel('Time',fontsize=font_size, fontweight='bold')
+        plt.xlabel("Time (Assimilation cycles)")
         plt.ylabel('Mardia-test statistics', fontsize=font_size, fontweight='bold')
         plt.xticks(np.arange(0, num_cycles+2))
         plt.yticks(np.arange(-4, 8, 2))
@@ -643,12 +989,12 @@ if __name__ == '__main__':
         plt.semilogy(np.arange(1, num_cycles+1), p_value_kurt[:, 1], 'yd-', linewidth=line_width, markersize=marker_size, label='p-value.kurt')
         plt.semilogy(np.arange(1, num_cycles+1), p_value_skew[:,1], 'kd-', linewidth=line_width, markersize=4+marker_size, label='p-value.skew')
         # plt.plot(np.arange(1, num_cycles+1), ensemble_multivariate_normal[:,1], color='#64B5CD' , marker='>', linewidth=line_width, markersize=4+marker_size, label='Gaussian')
-        
+
         # show the legend, show the plot
         plt.legend()
         #
         # Set lables and title
-        plt.xlabel('Time',fontsize=font_size, fontweight='bold')
+        plt.xlabel("Time (Assimilation cycles)")
         plt.ylabel('Mardia-test statistics', fontsize=font_size, fontweight='bold')
         plt.xticks(np.arange(0, num_cycles+2))
         plt.yticks(np.arange(-4, 8, 2))
@@ -695,7 +1041,7 @@ if __name__ == '__main__':
             plt.plot(forecast_times[1: ], gmm_num_components, 'bd-', linewidth=line_width, markersize=marker_size)
         #
         # Set lables and title
-        plt.xlabel('Time',fontsize=font_size, fontweight='bold')
+        plt.xlabel("Time (Assimilation cycles)")
         plt.ylabel('GMM number of components', fontsize=font_size, fontweight='bold')
         #
         xlables = [forecast_times[i] for i in xrange(len(forecast_times))]
@@ -705,7 +1051,7 @@ if __name__ == '__main__':
         plt.title('GMM Number of Mixture Components')
         #
         plt.draw()
-        
+
         if mardiaTest_results is not None:
             fig = plt.figure(facecolor='white')
             plt.rc('font', **font)
@@ -722,45 +1068,69 @@ if __name__ == '__main__':
             plt.legend()
             #
             # Set lables and title
-            plt.xlabel('Time',fontsize=font_size, fontweight='bold')
+            plt.xlabel("Time (Assimilation cycles)")
             plt.ylabel('Mardia-test, & num. GMM comp.', fontsize=font_size, fontweight='bold')
             plt.xticks(np.arange(0, num_cycles+2))
             plt.yticks(np.arange(max_num_components+1))
             plt.title('Mardia-test, & number GMM components')
             #
-            plt.draw() 
+            plt.draw()
 
     #
     # =====================================================================
     # Plot Rank Histograms for forecast and analysis ensemble
     # =====================================================================
+    model_name= model_name.lower()
+    if model_name == 'lorenz96':
+        ignore_indexes = None
+    elif model_name == 'qg-1.5':
+        nx = int(np.sqrt(state_size))
+        #
+        top_bounds = np.arange(nx)
+        right_bounds = np.arange(2*nx-1, nx**2-nx+1, nx)
+        left_bounds = np.arange(nx, nx**2-nx, nx )
+        down_bounds = np.arange(nx**2-nx, nx**2)
+        side_bounds = np.reshape(np.vstack((left_bounds, right_bounds)), (left_bounds.size+right_bounds.size), order='F')
+        ignore_indexes = np.concatenate((top_bounds, side_bounds, down_bounds))
+    else:
+        raise ValueError("Model is not supported here yet...")
+
+    #
     if forecast_ensembles is not None:
         f_out = utility.rank_hist(forecast_ensembles,
-                          reference_states, first_var=0, 
-                          last_var=None, 
-                          var_skp=5, 
-                          draw_hist=True, 
-                          hist_type='freq', 
-                          first_time_ind=2, 
+                          reference_states, first_var=0,
+                          last_var=None,
+                          var_skp=5,
+                          draw_hist=True,
+                          hist_type='relfreq',
+                          first_time_ind=2,
                           last_time_ind=None,
-                          time_ind_skp=1, 
+                          time_ind_skp=1,
+                          font_size=font_size,
                           hist_title='forecast rank histogram',
-                          hist_max_height=None
+                          hist_max_height=None,
+                          ignore_indexes=ignore_indexes,
+                          add_fitted_beta=True,
+                          add_uniform=True
                   )
-                  
+
     #
     if analysis_ensembles is not None:
         a_out = utility.rank_hist(analysis_ensembles,
-                          reference_states, first_var=0, 
-                          last_var=None, 
-                          var_skp=5, 
-                          draw_hist=True, 
-                          hist_type='relfreq', 
-                          first_time_ind=2, 
+                          reference_states, first_var=0,
+                          last_var=None,
+                          var_skp=5,
+                          draw_hist=True,
+                          hist_type='relfreq',
+                          first_time_ind=2,
                           last_time_ind=None,
-                          time_ind_skp=1, 
+                          time_ind_skp=1,
+                          font_size=font_size,
                           hist_title='analysis rank histogram',
-                          hist_max_height=None
+                          hist_max_height=None,
+                          ignore_indexes=ignore_indexes,
+                          add_fitted_beta=True,
+                          add_uniform=True
                   )
     # =====================================================================
 
@@ -785,7 +1155,7 @@ if __name__ == '__main__':
         ims = []
         for ind in xrange(num_cycles):
             state = np.reshape(np.squeeze(reference_states[:, ind]), (nx, ny), order='F')
-            imgplot = plt.imshow(state, animated=True)
+            imgplot = plt.imshow(state, animated=True, interpolation=interpolation, cmap=colormap)
             if ind == 0:
                 plt.colorbar()
             else:
@@ -800,7 +1170,7 @@ if __name__ == '__main__':
         ims = []
         for ind in xrange(num_cycles):
             state = np.reshape(np.squeeze(forecast_means[:, ind]), (nx, ny), order='F')
-            imgplot = plt.imshow(state, animated=True)
+            imgplot = plt.imshow(state, animated=True, interpolation=interpolation, cmap=colormap)
             if ind == 0:
                 plt.colorbar()
             else:
@@ -815,7 +1185,7 @@ if __name__ == '__main__':
         ims = []
         for ind in xrange(num_cycles):
             state = np.reshape(np.squeeze(forecast_means[:, ind]-reference_states[:, ind]), (nx, ny), order='F')
-            imgplot = plt.imshow(state, animated=True)
+            imgplot = plt.imshow(state, animated=True, interpolation=interpolation, cmap=colormap)
             if ind == 0:
                 plt.colorbar()
             else:
@@ -830,7 +1200,7 @@ if __name__ == '__main__':
         ims = []
         for ind in xrange(num_cycles):
             state = np.reshape(np.squeeze(analysis_means[:, ind]), (nx, ny), order='F')
-            imgplot = plt.imshow(state, animated=True)
+            imgplot = plt.imshow(state, animated=True, interpolation=interpolation, cmap=colormap)
             if ind == 0:
                 plt.colorbar()
             else:
@@ -845,7 +1215,7 @@ if __name__ == '__main__':
         ims = []
         for ind in xrange(num_cycles):
             state = np.reshape(np.squeeze(analysis_means[:, ind]-reference_states[:, ind]), (nx, ny), order='F')
-            imgplot = plt.imshow(state, animated=True)
+            imgplot = plt.imshow(state, animated=True, interpolation=interpolation, cmap=colormap)
             if ind == 0:
                 plt.colorbar()
             else:
@@ -858,7 +1228,8 @@ if __name__ == '__main__':
     else:
         raise ValueError("Model is not supported here yet...")
     #
-    plt.show()
+    if show_plots:
+        plt.show()
     # =====================================================================
     #
 

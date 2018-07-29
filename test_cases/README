@@ -1,0 +1,3 @@
+The drivers in this folder, and subfolders should be copied to the root path of DATeS, before run.
+This is required for accurate recognition of DATeS paths.
+

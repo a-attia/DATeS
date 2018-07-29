@@ -29,6 +29,7 @@
 #
 import os
 import shutil
+import dates_utility as utility
 
 wrapper_signature_suffix = 'erkadj'
 wrapper_signature_filename = wrapper_signature_suffix+'.pyf'
@@ -60,13 +61,13 @@ def create_wrapper(verbose=False):
         print("failed to retrieve the environment variable 'DATES_ROOT_PATH' ")
         print("You need to call dates_setup.initialize() at the beginning of your driver!")
         raise ValueError
-        
+
     src_dir = os.path.join(dates_root_path, 'src/Time_Integration/FATODE/FATODE/ADJ/ERK_ADJ/')
     if not os.path.isdir(src_dir):
         print("Failed to access the FATODE ERK adjoint directory:")
         print(src_dir)
         raise IOError
-        
+
     os.chdir(src_dir)
 
     # check if the wrapper exists, and is valid:
@@ -125,7 +126,7 @@ def run_f2py_compiler_cmd(verbose=False):
     If these libraries are not installed, TRY sudo [apt-get/yum] install libblas-dev liblapack-dev
     we can use 'dpkg --list | grep compiler' to get a list of compilers later [Ubuntu/Debian]. For Yum-based, we can use 'yum search all compiler'.
     """
-    wrapping_cmd = "f2py --fcompiler=%s -c %s %s %s %s > %s" % (FC, 
+    wrapping_cmd = "f2py --fcompiler=%s -c %s %s %s %s > %s" % (FC,
                                                                 wrapper_signature_filename,
                                                                 ' '.join(['-I' + inc_path for inc_path in ICDIRS]),
                                                                 ' '.join(['-' + lib for lib in FLIBS]),
@@ -141,5 +142,9 @@ def run_f2py_compiler_cmd(verbose=False):
     else:
         pass
 
-
-
+    # cleanup dSYM directory (for Mac OS) if generated:
+    cwd = os.getcwd()
+    dirs = utility.get_list_of_subdirectories(cwd)
+    for d in dirs:
+        if 'dSYM' in d:
+            shutil.rmtree(d, ignore_errors=True)

@@ -28,7 +28,7 @@
         i) Ahmed Attia, Vishwas Rao, and Adrian Sandu. "A Hybrid Monte-Carlo sampling smoother for four-dimensional data assimilation." International Journal for Numerical Methods in Fluids 83.1 (20170: 90-112.
        ii) Ahmed Attia, Razvan Stefanescu, and Adrian Sandu. "The reduced-order Hybrid Monte Carlo sampling smoother." International Journal for Numerical Methods in Fluids 83.1 (2017): 28-51.
        iii) Ahmed Attia, Mahesh Narayanamurthi, and Vishwas Rao, "Cluster sampling smoother for 4DDA" Under Development
-       
+
     This is a class derived from the HMCSmoother class for DA sequential smoothing.
 """
 
@@ -55,10 +55,10 @@ from scipy.linalg import lu_factor, lu_solve
 
 class HMCSmoother(SmoothersBase):
     """
-    A class implementing the Hamiltonian/Hybrid Monte-Carlo Sampling family for smoothing developed by Ahmed Attia (2014/2015/2016). 
-    
+    A class implementing the Hamiltonian/Hybrid Monte-Carlo Sampling family for smoothing developed by Ahmed Attia (2014/2015/2016).
+
     HMC smoother constructor.
-    
+
     Args:
         smoother_configs:  dict, a dictionary containing HMC smoother configurations.
             Supported configuarations:
@@ -87,7 +87,7 @@ class HMCSmoother(SmoothersBase):
                     This is added to all variances, e.g. if some variances are below
                 * gmm_prior_settings: dict,
                     This is a configurations dictionary of the GMM approximation to the prior.
-                    This will be used only if the prior is assumed to be non-Gaussian, and better estimate is 
+                    This will be used only if the prior is assumed to be non-Gaussian, and better estimate is
                     needed, i.e. it is used only if 'prior_distribution' is set to 'GMM'.
                     The implementation in this case follows the cluster EnKF described by [cite].
                     The configurations supported are:
@@ -101,36 +101,36 @@ class HMCSmoother(SmoothersBase):
                        - localization_function ('gaspari-cohn'): the covariance localization function
                             'gaspari-cohn', 'gauss', etc.
                        - inf_criteria (default 'aic'): Model information selection criterion;
-                            Supported criteria: 
+                            Supported criteria:
                                 + 'aic': Akaike information criterion
                                 + 'bic': Bayesian information criterion
-                       - number_of_components (default None): The number of components in the GMM. 
-                            This overrides the inf_criteria and forces a specific number of components to be 
+                       - number_of_components (default None): The number of components in the GMM.
+                            This overrides the inf_criteria and forces a specific number of components to be
                             fitted by the EM algorithm.
-                       - min_number_of_components (default None): If not None, and number_of_components is 
-                            None, and a selection criterion is used for model selection, the number of 
+                       - min_number_of_components (default None): If not None, and number_of_components is
+                            None, and a selection criterion is used for model selection, the number of
                             components is forced to be at least equal to the min_number_of_components.
-                       - max_number_of_components (default None): If not None, and number_of_components is 
-                            None, and a selection criterion is used for model selection, the number of 
+                       - max_number_of_components (default None): If not None, and number_of_components is
+                            None, and a selection criterion is used for model selection, the number of
                             components is forced to be at most equal to the max_number_of_components.
                        - min_number_of_points_per_component (default 1): If number_of_components is None,
-                            and a selection criterion is used for model selection, the number of 
+                            and a selection criterion is used for model selection, the number of
                             components is decreased untill the number of sample points under each component
                             is at least equal to the min_number_of_points_per_component.
-                       - invert_uncertainty_param (default True): From Covariances obtain Precisions, and 
+                       - invert_uncertainty_param (default True): From Covariances obtain Precisions, and
                             vice-versa.
                        - approximate_covariances_from_comp (default False): use parameters/statistics of the
                             mixture components to evaluate/approximate the joint mean, and covariance matrix
                             of the ensemble.
                             If False, the ensemble itself is used to evaluate the joint mean, and covariances.
-                       - use_oringinal_hmc_for_one_comp (default False): Fall back to originial HMC if 
+                       - use_oringinal_hmc_for_one_comp (default False): Fall back to originial HMC if
                             one mixture component (Gaussian prior) is detected in the ensemble.
-                       - initialize_chain_strategy (default 'forecast_mean'): strategy for initializing the 
+                       - initialize_chain_strategy (default 'forecast_mean'): strategy for initializing the
                             Markov chain.
                             Supported initialization strategies:
                                 + 'highest_weight': initialize the chain to the mean of the mixture component
                                     with highst mixing weight.
-                                + 'forecast_mean': initialize the chain to the (joint) ensemble mean.                         
+                                + 'forecast_mean': initialize the chain to the (joint) ensemble mean.
                 * ensemble_size (default None): size of the ensemble; this has to be set e.g. in a driver
                 * analysis_ensemble (default None): a placeholder of the analysis ensemble.
                     All ensembles are represented by list of model.state_vector objects
@@ -141,14 +141,14 @@ class HMCSmoother(SmoothersBase):
                 * forecast_state (default None): model.state_vector object containing the forecast state.
                 * smoother_statistics: dict,
                     A dictionary containing updatable smoother statistics. This will be updated by the smoother.
-                
+
         output_configs: dict, a dictionary containing screen/file output configurations.
             Supported configuarations:
                 * scr_output (default False): Output results to screen on/off switch
                 * file_output (default True): Save results to file on/off switch
-                * file_output_dir (default 'Assimilation_Results'): relative path (to DATeS root directory) 
+                * file_output_dir (default 'Assimilation_Results'): relative path (to DATeS root directory)
                     of the directory to output results in
-                
+
                 * smoother_statistics_dir (default 'Smoother_Statistics'): directory where smoother statistics (such as RMSE, ESS,...) are saved
                 * model_states_dir (default 'Model_States_Repository'): directory where model-states-like objects (including ensemble) are saved
                 * observations_dir (default 'Observations_Rpository'): directory where observations and observations operators are saved
@@ -162,7 +162,7 @@ class HMCSmoother(SmoothersBase):
                         - 'pickle': python pickled objects,
                         - 'txt' or 'ascii': text files
                 * file_output_separate_files (default True): save all results to a single or multiple files
-                                  
+
     """
     #
     _smoother_name = "HMC-S"
@@ -190,7 +190,7 @@ class HMCSmoother(SmoothersBase):
                                                              approximate_covariances_from_comp=False,
                                                              use_oringinal_hmc_for_one_comp=False,
                                                              initialize_chain_strategy='forecast_mean'
-                                                             ),                                     
+                                                             ),
                                      chain_parameters=dict(Initial_state=None,
                                                            Symplectic_integrator='3-stage',
                                                            Hamiltonian_num_steps=30,
@@ -219,7 +219,7 @@ class HMCSmoother(SmoothersBase):
                                                             rejection_rate=None
                                                             )
                                      )
-    _local_def_output_configs = dict(scr_output=True, 
+    _local_def_output_configs = dict(scr_output=True,
                                      file_output=False,
                                      smoother_statistics_dir='Smoother_Statistics',
                                      model_states_dir='Model_States_Repository',
@@ -254,10 +254,10 @@ class HMCSmoother(SmoothersBase):
             print("\n\n** Failed to get/set the value of '__time_eps'**\n setting it to %f\n " % local__time_eps)
             __time_eps = local__time_eps
             # raise ValueError
-    
-    # 
+
+    #
     def __init__(self, smoother_configs=None, output_configs=None):
-        
+
         smoother_configs = utility.aggregate_configurations(smoother_configs, HMCSmoother._def_local_smoother_configs)
         output_configs = utility.aggregate_configurations(output_configs, HMCSmoother._local_def_output_configs)
         SmoothersBase.__init__(self, smoother_configs=smoother_configs, output_configs=output_configs)
@@ -282,9 +282,9 @@ class HMCSmoother(SmoothersBase):
         self._time_eps = HMCSmoother.__time_eps
         # print("self.__time_eps", self._time_eps)
         # print("self._model_step_size", self._model_step_size)
-        
+
         #
-        # the following configuration are smoother-specific.        
+        # the following configuration are smoother-specific.
         # validate the ensemble size
         if self.smoother_configs['ensemble_size'] is None:
             try:
@@ -399,10 +399,10 @@ class HMCSmoother(SmoothersBase):
         It should be updated at the beginning of each assimilation cycle for proper and consistent performance.
         The mass matrix here is assumed to be always diagonal. The values on the diagonal are set based on the
         strategy given in self.mass_matrix_strategy.
-        
+
         Returns:
             momentum_obj:
-           
+
         """
         # create a momentum object with a predefined mass matrix based on smoother parameters.
         if self.mass_matrix_strategy == 'identity':
@@ -431,12 +431,12 @@ class HMCSmoother(SmoothersBase):
             #
         return momentum_obj
         #
-    
+
     #
     def update_momentum(self, mass_matrix=None, mass_matrix_shape=None, dimension=None, model=None, diag_val_thresh=1e-15):
         """
         Update the statistics of the momentum object.
-        
+
         Args:
             mass_matrix: scalar, one-D or 2-D numpy array, or a model.state_matrix object
                 - if it is a scaler, it is used to fill the diagonal of a diagonal mass matrix
@@ -447,9 +447,9 @@ class HMCSmoother(SmoothersBase):
                 This should really be 'diagonal'
             dimension: space dimension of the momentum variable
             model: model object
-            diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on 
+            diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on
                 finding the mass matrix inverse.
-        
+
         """
         # Check the input arguments and retrieve the defaults for Nones
         if model is None:
@@ -474,7 +474,7 @@ class HMCSmoother(SmoothersBase):
                 except (AttributeError, ValueError, NameError):
                     self.generate_prior_info()
                     prior_variances = self.prior_variances
-                # The values on the diagonal of the mass matrix can't be very small to avoid overflow when inverting the mass matrix                
+                # The values on the diagonal of the mass matrix can't be very small to avoid overflow when inverting the mass matrix
                 if isinstance(prior_variances, StateVector):
                     # slice it to convert to numpy array if not
                     prior_variances = prior_variances.get_numpy_array()
@@ -502,11 +502,11 @@ class HMCSmoother(SmoothersBase):
         """
         Apply the smoothing step. Forecast, then Analysis...
         All arguments are accessed and updated in the configurations dictionary.
-        
+
         Args:
             update_reference (default True): bool,
                 A flag to decide whether to update the reference state in the smoother or not.
-                      
+
         """
         # Call basic functionality from the parent class:
         SmoothersBase.smoothing_cycle(self, update_reference=update_reference)
@@ -517,27 +517,27 @@ class HMCSmoother(SmoothersBase):
     #
     def forecast(self, generate_prior_info=False):
         """
-        Forecast step of the smoother. 
-        Use the model object to propagate each ensemble member to the end of the given checkpoints to 
-        produce and ensemble of forecasts. 
+        Forecast step of the smoother.
+        Use the model object to propagate each ensemble member to the end of the given checkpoints to
+        produce and ensemble of forecasts.
         Smoother configurations dictionary is updated with the new results.
         If the prior is assumed to be a Gaussian, we are all set, otherwise we have to estimate it's
         parameters based on the provided forecast ensemble (e.g. in the case of 'prior_distribution' = GMM ).
-                
+
         """
         # generate the forecast states
         analysis_timespan = np.asarray(self.smoother_configs['analysis_timespan'])
         wb = self.smoother_configs['window_bounds']
         initial_time = self.smoother_configs['analysis_time']
         #
-        
+
         analysis_ensemble = list(self.smoother_configs['analysis_ensemble'])
         initial_state = self.smoother_configs['analysis_state']
-        
+
         #
         if (wb[-1]-analysis_timespan[-1]) > self._time_eps:
             np.append(analysis_timespan, wb[-1])
-        
+
         if abs(initial_time - analysis_timespan[0]) > self._time_eps:
             print("The initial time has to be at the initial time of the assimilation window here!")
             raise ValueError
@@ -550,23 +550,23 @@ class HMCSmoother(SmoothersBase):
                 initial_state = tmp_trajectory[-1].copy()
             else:
                 initial_state = tmp_trajectory.copy()
-                
+
         else:
             # We are good to go; the initial time matches the beginning of the assimilation timespan
             pass
-        
+
         #
         forecast_ensemble = utility.propagate_ensemble(ensemble=analysis_ensemble,
                                                        model=self.smoother_configs['model'],
                                                        checkpoints=analysis_timespan,
                                                        in_place=False)
         forecast_state = utility.ensemble_mean(forecast_ensemble)
-        
+
         self.smoother_configs.update({'forecast_ensemble': forecast_ensemble,
                                       'forecast_state': forecast_state,
                                       'forecast_time': analysis_timespan[-1]
                                       })
-        
+
         #
         analysis_trajectory = self.model.integrate_state(initial_state, analysis_timespan)
         self.smoother_configs.update({'analysis_trajectory': analysis_trajectory,
@@ -576,16 +576,16 @@ class HMCSmoother(SmoothersBase):
         if generate_prior_info:
             self.generate_prior_info()
         #
-            
+
     #
     def generate_prior_info(self):
         """
         Generate the statistics of the approximation of the prior distribution.
-            - if the prior is Gaussian, the covariance (ensemble/hybrid) matrix is generated and 
+            - if the prior is Gaussian, the covariance (ensemble/hybrid) matrix is generated and
               optionally localized.
-            - if the prior is GMM, the parameters of the GMM (weights, means, covariances) are generated 
-              based on the gmm_prior_settings. 
-        
+            - if the prior is GMM, the parameters of the GMM (weights, means, covariances) are generated
+              based on the gmm_prior_settings.
+
         """
         # Read the forecast ensemble...
         forecast_ensemble = self.smoother_configs['forecast_ensemble']
@@ -609,7 +609,7 @@ class HMCSmoother(SmoothersBase):
             self.smoother_configs['forecast_ensemble'] = inflated_ensemble
         else:
             pass
-        
+
         #
         prior_variances_threshold=self.smoother_configs['prior_variances_threshold']
         #
@@ -623,7 +623,7 @@ class HMCSmoother(SmoothersBase):
                 balance_factor = self._def_local_smoother_configs['hybrid_background_coeff']
             #
             fac = balance_factor  # this multiplies the modeled Background error covariance matrix
-            if 0.0 < fac < 1.0: 
+            if 0.0 < fac < 1.0:
                 if self._verbose:
                     print("Hyberidizing the background error covariance matrix")
                 model_covariances = self.model.background_error_model.B.copy().scale(fac)
@@ -640,7 +640,7 @@ class HMCSmoother(SmoothersBase):
                        )
                 raise ValueError
             #
-                                
+
             # Apply localization on the full background error covariance matrix.
             if self.smoother_configs['localize_covariances']:
                 if self._verbose:
@@ -651,7 +651,7 @@ class HMCSmoother(SmoothersBase):
                     # localization radius seems legit; apply covariance localization now
                     try:
                         model_covariances = self.model.apply_state_covariance_localization(model_covariances,
-                                                                                            localization_function=loc_func, 
+                                                                                            localization_function=loc_func,
                                                                                             localization_radius=loc_radius
                                                                                             )
                     except(TypeError):
@@ -672,17 +672,17 @@ class HMCSmoother(SmoothersBase):
             if self._verbose:
                 print("Forecast covariances:", model_covariances)
                 print("Prior Variances", self.prior_variances)
-            
+
             #
             # print("******************* Attempting to do LU decomposition ******************")
             #
             # lu_and_piv = model_covariances.lu_factor()  # this returns two 2D numpy arrays
             lu, piv = lu_factor(model_covariances.get_numpy_array())  # this returns two 2D numpy arrays
-            
-            # Cleanup = priovious forecast statistics if they exist 
+
+            # Cleanup = priovious forecast statistics if they exist
             # (e.g. due to switching from GMM to Gaussian prior if one compoenent is detected)
             self.prior_distribution_statistics = dict()
-            
+
             # Avoid the following first step if 'B' is not required in full in later calculations
             self.prior_distribution_statistics['B'] = model_covariances
             self.prior_distribution_statistics['B_lu'] = lu
@@ -733,12 +733,12 @@ class HMCSmoother(SmoothersBase):
                 self.generate_prior_info()
                 return
                 # raise ValueError
-            else: 
+            else:
                 #
-                # Cleanup = priovious forecast statistics if they exist 
+                # Cleanup = priovious forecast statistics if they exist
                 # (e.g. due to switching from GMM to Gaussian prior if one compoenent is detected)
                 self.prior_distribution_statistics = dict()
-                
+
                 if isinstance(gmm_weights, np.ndarray):
                     gmm_num_components = gmm_weights.size
                 else:
@@ -749,7 +749,7 @@ class HMCSmoother(SmoothersBase):
                     print('gmm_weights', gmm_weights)
                     print("GMM number of components is nonsense!")
                     raise ValueError()
-                
+
                 #
                 if gmm_num_components > 1:
                     gmm_weights = np.asarray(gmm_weights)
@@ -911,7 +911,7 @@ class HMCSmoother(SmoothersBase):
                                 self.prior_variances = np.var(forecast_ensemble_numpy, 0)
                                 self.prior_mean = joint_mean
                     self.prior_variances_list = variances_list
-                    
+
                 #
                 elif gmm_optimal_covar_type == 'tied':
                     if gmm_covariances is None:
@@ -921,7 +921,7 @@ class HMCSmoother(SmoothersBase):
                     else:
                         covariances_matrix = self.model.state_matrix()
                         covariances_matrix[:, :] = gmm_covariances[:, :].copy()
-                        # 
+                        #
                         # validate variances:
                         model_covariances_diag = covariances_matrix.diag()
                         tiny_covar_indices =  model_covariances_diag < prior_variances_threshold
@@ -939,7 +939,7 @@ class HMCSmoother(SmoothersBase):
                                 # localization radius seems legit; apply covariance localization now
                                 try:
                                     covariances_matrix = self.model.apply_state_covariance_localization(covariances_matrix,
-                                                                                                         localization_function=loc_func, 
+                                                                                                         localization_function=loc_func,
                                                                                                          localization_radius=loc_radius
                                                                                                          )
                                 except(TypeError):
@@ -1011,7 +1011,7 @@ class HMCSmoother(SmoothersBase):
                                 # localization radius seems legit; apply covariance localization now
                                 try:
                                     precisions_matrix = self.model.apply_state_covariance_localization(precisions_matrix.inv(),
-                                                                                                        localization_function=loc_func, 
+                                                                                                        localization_function=loc_func,
                                                                                                         localization_radius=loc_radius
                                                                                                         ).inv()  # quite clear this is bad
                                 except(TypeError):
@@ -1022,9 +1022,9 @@ class HMCSmoother(SmoothersBase):
                                     # Try the localization with default settings in the model
                                     precisions_matrix = self.model.apply_state_covariance_localization(precisions_matrix.inv()).inv()
                             #
-                            
+
                         self.prior_distribution_statistics['gmm_precisions'] = precisions_matrix
-                        
+
                         # calculate covariance_det_log if necessary
                         if calculate_det_log:
                             # Evaluate and replicate the logarithm of the covariances matrix's determinant for all components.
@@ -1067,7 +1067,7 @@ class HMCSmoother(SmoothersBase):
                                 joint_mean[:] = np.mean(forecast_ensemble_numpy, 0)
                                 self.prior_variances = np.var(forecast_ensemble_numpy, 0)
                                 self.prior_mean = joint_mean
-                    self.prior_variances_list = [prior_variances] 
+                    self.prior_variances_list = [prior_variances]
 
                 #
                 elif gmm_optimal_covar_type == 'full':
@@ -1200,9 +1200,9 @@ class HMCSmoother(SmoothersBase):
                                 joint_mean[:] = np.mean(forecast_ensemble_numpy, 0)
                                 self.prior_variances = np.var(forecast_ensemble_numpy, 0)
                                 self.prior_mean = joint_mean
-                    
+
                     self.prior_variances_list = variances_list
-                    
+
                 #
                 else:
                     print("This is unexpected!. optimal_covar_type = '%s' " % gmm_optimal_covar_type)
@@ -1227,10 +1227,10 @@ class HMCSmoother(SmoothersBase):
     def analysis(self):
         """
         Analysis step.
-        
+
         Returns:
             chain_diagnostics:
-                
+
         """
         #
         # Obtain information about the prior distribution from the forecast ensemble
@@ -1241,7 +1241,7 @@ class HMCSmoother(SmoothersBase):
         #
         self.generate_prior_info()
         #
-        
+
         # If the momentum parameters are not yet initialized, then do so.
         # This can be the case if the momentum is not initialized in the smoother constructor.
         if self._momentum is None:
@@ -1252,7 +1252,7 @@ class HMCSmoother(SmoothersBase):
             print("The current momentum is not an instance of the right object!")
             raise ValueError()
             #
-        
+
         #
         # get the forecast state as the mean of the forecast ensemble. Will not be used for GMM!
         initialize_chain_strategy = self.smoother_configs['gmm_prior_settings']['initialize_chain_strategy']
@@ -1296,8 +1296,8 @@ class HMCSmoother(SmoothersBase):
         # TODO:     2- No-U-Turn: _nuts_hmc_produce_ensemble
         # TODO:     3- Riemannian HMC: _rm_hmc_produce_ensemble
         # TODO:     4- My new HMC with automatic adjustment of parameters
-        
-        # 
+
+        #
         analysis_ensemble, chain_diagnostics = self._hmc_produce_ensemble(initial_state=initial_state, verbose=self._verbose)
 
         # inflation of the analysis ensemble can be considered with MultiChain MCMC sampler if small steps are taken
@@ -1318,10 +1318,10 @@ class HMCSmoother(SmoothersBase):
             self.smoother_configs['analysis_ensemble'] = inflated_ensemble
         else:
             pass
-            
+
         # Update the analysis ensemble in the smoother_configs
         self.smoother_configs['analysis_ensemble'] = analysis_ensemble  # list reconstruction processes copying
-        
+
         # update analysis_state
         self.smoother_configs['analysis_state'] = utility.ensemble_mean(self.smoother_configs['analysis_ensemble'])
         #
@@ -1335,7 +1335,7 @@ class HMCSmoother(SmoothersBase):
             self.smoother_configs['prior_distribution'] = 'gmm'
         else:
             self.switched_to_Gaussian_prior = False
-        
+
         # Add chain diagnostics to the output_configs dictionary for proper outputting:
         self.output_configs['smoother_statistics'].update({'chain_diagnostics':chain_diagnostics})
         #
@@ -1349,18 +1349,18 @@ class HMCSmoother(SmoothersBase):
         Use HMC sampling scheme to construct the Markov chain and collect ensembles from the stationary distribution.
         This is the function you should call first to generate the ensemble, everything else is called/controlled by
         this method.
-        
+
         Args:
             initial_state: state (position) used to initialize the Markov chain
-            analysis_ensemble_in (default None): an analysis ensemble (list of model.state_vector objects) 
+            analysis_ensemble_in (default None): an analysis ensemble (list of model.state_vector objects)
                 that is updated by the collected ensemble (in place) instead of creating a new list.
             verbose (default False): can be used for extra on-screen printing while debugging, and testing
-            
+
         Returns:
             analysis_ensemble: the samples collected by the HMC sampler from the posterior distribution
             chain_diagnostics: a dictionary containing the diagnostics of the chain such as acceptance rate, and
                 effective sample size, etc.
-            
+
         """
         # Collect all required parameters:
         # Check the initial state and initialize a placeholder for the proposed state
@@ -1377,7 +1377,7 @@ class HMCSmoother(SmoothersBase):
                     print("Chain initialization policy is not recognized. \n"
                                      "You have to pass on of the values:\n %s" % repr(initialize_chain_strategies))
                     raise ValueError()
-            
+
             if initialize_chain_strategy == 'forecast_mean':
                 try:
                     initial_state = self.prior_mean.copy()
@@ -1456,7 +1456,7 @@ class HMCSmoother(SmoothersBase):
                 acceptance_probabilities = []
                 uniform_random_numbers = []
                 #
-                
+
                 # start constructing the chain(s)
                 burn_in_steps = self.chain_parameters['burn_in_steps']
                 current_state = initial_state.copy()
@@ -1465,15 +1465,15 @@ class HMCSmoother(SmoothersBase):
                     # (replace the old one... This may be hard if diagnostic tools are used)
                     # generate a fresh synthetic momentum vector. I use the place holder to avoid recreating state vectors
                     current_momentum = self._momentum.generate_momentum(momentum_vec=current_momentum)
-                    
+
                     if True:
-                        
+
                         proposed_state, proposed_momentum = self._hmc_propose_state(current_state=current_state,
                                                                                     current_momentum=current_momentum)
-                        
+
                         if verbose:
                             print(">>>>>>>==================>>>>>>>. RMSE current/proposed", utility.calculate_rmse(current_state, proposed_state))
-                                               
+
                         # add current_state to the ensemble as it is the most updated membe
                         accept_proposal, energy_loss, a_n, u_n = self._hmc_MH_accept_reject(current_state=current_state,
                                                                                             proposed_state=proposed_state,
@@ -1481,15 +1481,15 @@ class HMCSmoother(SmoothersBase):
                                                                                             proposed_momentum=proposed_momentum,
                                                                                             verbose=verbose
                                                                                             )
-                        
+
                     else:
                         try:
                             proposed_state, proposed_momentum = self._hmc_propose_state(current_state=current_state,
                                                                                         current_momentum=current_momentum)
-                            
+
                             if verbose:
                                 print(">>>>>>>==================>>>>>>>. RMSE current/proposed", utility.calculate_rmse(current_state, proposed_state))
-                                                   
+
                             # add current_state to the ensemble as it is the most updated membe
                             accept_proposal, energy_loss, a_n, u_n = self._hmc_MH_accept_reject(current_state=current_state,
                                                                                                 proposed_state=proposed_state,
@@ -1499,19 +1499,18 @@ class HMCSmoother(SmoothersBase):
                                                                                                 )
                         except(ValueError):
                             accept_proposal, energy_loss, a_n, u_n = False, 0, 0, 1
-                        
-                    if verbose:
-                        print("HMC Smoother: Burning-In step %d; accept_proposal %s, energy_loss=%f, a_n=%3.2f, u_n=%3.2f " % (burn_ind, accept_proposal, energy_loss, a_n, u_n))
-                        
+
+                    print("HMC SMOOTHER >> BURN-IN STEP: Step [%3d]; accept_proposal %5s, energy_loss=%+12.8e, a_n=%3.2f " % (burn_ind, accept_proposal, energy_loss, a_n))
+
                     # save probabilities for chain diagnostics evaluation
                     acceptance_probabilities.append(a_n)
-                    uniform_random_numbers.append(u_n)  
+                    uniform_random_numbers.append(u_n)
                     #
                     if accept_proposal:
                         acceptance_flags.append(1)
                         if verbose:
-                            print('Burning step [%d]: J=%f' % (burn_ind, self._hmc_total_energy(proposed_state, proposed_momentum)))
-                        current_state = proposed_state.copy()  # Do we need to copy?                        
+                            print("Burning step [%d]: J=%f" % (burn_ind, self._hmc_total_energy(proposed_state, proposed_momentum)))
+                        current_state = proposed_state.copy()  # Do we need to copy?
                     else:
                         acceptance_flags.append(0)
                         # do nothing, unless we decide later to keep all or some of the burned states, may be for diagnostics or so!
@@ -1546,29 +1545,32 @@ class HMCSmoother(SmoothersBase):
                                                                                             )
                     except(ValueError):
                         accept_proposal, energy_loss, a_n, u_n = False, 0, 0, 1
-                    
+
                     # save probabilities for chain diagnostics evaluation
                     acceptance_probabilities.append(a_n)
-                    uniform_random_numbers.append(u_n)  
+                    uniform_random_numbers.append(u_n)
                     #
+
+                    print("HMC SMOOTHER: MIXING STEP >> Ensemble member [%3d] Mixing step [%3d] : accept_proposal %5s; energy_loss=%+12.8e, a_n=%4.3f" % (ens_ind, mixing_ind, accept_proposal, energy_loss, a_n))
+
+
                     if accept_proposal:
                         acceptance_flags.append(1)
                         current_state = proposed_state.copy()
                         #
                         if verbose:
-                            print("Ensemble member [%d] Mixing step [%d] : u_n=%4.3f, a_n=%4.3f" % (ens_ind, mixing_ind, u_n, a_n))
                             print('Mixing: J=', self._hmc_total_energy(proposed_state, proposed_momentum))
                     else:
                         acceptance_flags.append(0)
                         # do nothing, unless we decide later to keep all or some of the thinning states, may be for diagnostics or so!
                         pass
-                    
+
                 # add current_state to the ensemble as it is the most updated membe
-                
+
                 if append_members:
                     analysis_ensemble.append(current_state)  # append already copies the object and add reference to it.
                 else:
-                    analysis_ensemble[ens_ind][:] = current_state[:].copy()  # same. no need to copy.                
+                    analysis_ensemble[ens_ind][:] = current_state[:].copy()  # same. no need to copy.
         #
         if self._verbose:
             liner = "--."*30
@@ -1581,7 +1583,7 @@ class HMCSmoother(SmoothersBase):
             print("analysis_state:", utility.ensemble_mean(analysis_ensemble)[100:200])
             print("Prior Variances", self.prior_variances)
             print("\nNow return...\n%s\n" % liner)
-            
+
         # prepare chain statistics and diagnostic measures to be returned:
         acceptance_rate = float(np.asarray(acceptance_flags).sum()) / len(acceptance_flags) * 100.0
         rejection_rate = (100.0 - acceptance_rate)
@@ -1591,33 +1593,33 @@ class HMCSmoother(SmoothersBase):
                                  acceptance_flags=acceptance_flags,
                                  uniform_random_numbers=uniform_random_numbers
                                  )
-        
+
         # return the collected ensembles, and chain diagnostics.
         # print('first member test', isinstance(analysis_ensemble[0], np.ndarray))
-        
+
         return analysis_ensemble, chain_diagnostics
         #
-    
+
     #
     def _hmc_MH_accept_reject(self, current_state, current_momentum, proposed_state, proposed_momentum, verbose=False):
         """
         Metropolis-Hastings accept/reject criterion based on loss of energy between current and proposed states
         proposed_state, proposed_momentum are the result of forward propagation of current_state, current_momentum
         using the symplectic integrator
-        
+
         Args:
             current_state: current (position) state of the chain
             current_momentum: current (momentum) state of the chain
             proposed_state: proposed (position) state of the chain
             proposed_momentum: current (momentum) state of the chain
             verbose (default False): can be used for extra on-screen printing while debugging, and testing
-        
+
         Returns:
             accept_state: True/False, whether to accept the proposed state/momentum or reject them
             energy_loss: the difference between total energy of the proposed and the current pair
             a_n: Metropolis-Hastings (MH) acceptance probability
             u_n: the uniform random number compared to a_n to accept/reject the sate (MH)
-            
+
         """
         symplectic_integrator = self.symplectic_integrator.lower()
         #
@@ -1650,20 +1652,20 @@ class HMCSmoother(SmoothersBase):
         #
         return accept_state, energy_loss, a_n, u_n
         #
-    
+
     #
     def _hmc_total_energy(self, current_state, current_momentum):
         """
         Evaluate the total energy function (the Hamiltonian) for a given position/momentum pair
-        Total Energy: Kinetic + Potential energy 
-        
+        Total Energy: Kinetic + Potential energy
+
         Args:
             current_state: current (position) state of the chain
             current_momentum: current (momentum) state of the chain
-        
+
         Returns:
             total_energy: Kinetic + Potential energy of the passed position/momentum pair
-            
+
         """
         potential_energy = self._hmc_potential_energy_value(current_state)
         kinetic_energy = self._momentum.evaluate_kinetic_energy(current_momentum)
@@ -1679,16 +1681,16 @@ class HMCSmoother(SmoothersBase):
         This generally means: build a full Hamiltonian Trajectory.
         If proposed_state is not None, it will be updated, otherwise a new object of the same type as current_state
         will be created and returned.
-        
+
         Args:
             current_state: current (position) state of the chain
             current_momentum: current (momentum) state of the chain
-        
+
         Returns:
             proposed_state: position variable at the end of the Hamiltonian trajectory
             proposed_momentum: momentum variable at the end of the Hamiltonian trajectory
-            
-                proposed_state, proposed_momentum are the result of forward propagation of 
+
+                proposed_state, proposed_momentum are the result of forward propagation of
                 current_state, current_momentum using the symplectic integrator
         """
         # generate a momentum vector if none is passed
@@ -1707,20 +1709,20 @@ class HMCSmoother(SmoothersBase):
         Given the current tuple in phase-space (current_state, current_momentum) construct a Hamiltonian trajectory and
         return the last state and momentum as proposed_state and proposed_momentum.
         Make sure the current state is not altered.
-        
+
         Args:
             current_state: current (position) state of the chain
             current_momentum: current (momentum) state of the chain
-            perturb_step_size (default True): add random perturbation to the pseudo-step size of the symplectic 
+            perturb_step_size (default True): add random perturbation to the pseudo-step size of the symplectic
                 integrator to reduce independence of the results on the specific choice of the step size.
-            
+
         Returns:
             proposed_state: position variable at the end of the Hamiltonian trajectory
             proposed_momentum: momentum variable at the end of the Hamiltonian trajectory
-            
-                proposed_state, proposed_momentum are the result of forward propagation of 
+
+                proposed_state, proposed_momentum are the result of forward propagation of
                 current_state, current_momentum using the symplectic integrator
-            
+
         """
         # 1- Retrieve the symplectic integrator name,
         symplectic_integrator = self.symplectic_integrator
@@ -1785,15 +1787,15 @@ class HMCSmoother(SmoothersBase):
                 #
                 dj = self._hmc_potential_energy_gradient(proposed_state)
                 proposed_momentum = proposed_momentum.axpy(-b1*h, dj)
-                #                
-                
+                #
+
                 tmp_momentum = self._momentum.inv_mass_mat_prod_momentum(proposed_momentum, in_place=False)
                 proposed_state = proposed_state.axpy(a2*h, tmp_momentum)
                 #
                 dj = self._hmc_potential_energy_gradient(proposed_state)
                 proposed_momentum = proposed_momentum.axpy(-b2*h, dj)
                 #
-                
+
                 tmp_momentum = self._momentum.inv_mass_mat_prod_momentum(proposed_momentum, in_place=False)
                 proposed_state = proposed_state.axpy(a2*h, tmp_momentum)
                 #
@@ -1802,7 +1804,7 @@ class HMCSmoother(SmoothersBase):
                 #
                 tmp_momentum = self._momentum.inv_mass_mat_prod_momentum(proposed_momentum, in_place=False)
                 proposed_state = proposed_state.axpy((a1*h), tmp_momentum)
-                
+
         #
         elif symplectic_integrator == '4-stage':
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
@@ -1855,64 +1857,67 @@ class HMCSmoother(SmoothersBase):
     def _hmc_potential_energy(self, current_state):
         """
         Evaluate the potential energy value and gradient
-        
+
         Args:
             current_state: current (position) state of the chain
-            
+
         Returns:
             potential_energy_value: value of the potential energy function at the given position,
                 this is the negative-log of the target posterior
             potential_energy_gradient: gradient of the potential energy function
-            
+
         """
         potential_energy_value = self._hmc_potential_energy_value(current_state)
         potential_energy_gradient = self._hmc_potential_energy_gradient(current_state)
         #
         return potential_energy_value, potential_energy_gradient
         #
-    
+
     #
     def _hmc_potential_energy_value(self, current_state):
         """
         Evaluate the potential energy value only. Potential energy here, is the 4D-Var cost functional.
-        
+
         Args:
             current_state: current (position) state of the chain
-            
+
         Returns:
             potential_energy_value: value of the potential energy function at the given position,
                 this is the negative-log of the target posterior
-            
+
         """
         #
         if isinstance(current_state, np.ndarray):
-            local_state = self.model.state_vector()
-            local_state[:] = current_state.copy()
+            in_state = self.model.state_vector()
+            in_state[:] = current_state.copy()
         else:
-            local_state = current_state.copy()
-        
+            in_state = current_state.copy()
+
+        # This will keep track of propagated state over the assimilation window
+        local_state = in_state.copy()
+
         #
         model = self.model
         window_bounds = self.smoother_configs['window_bounds']
-        
+
         #
         # Retrieve the observations list, and time settings
         observations_list = self.smoother_configs['observations_list']
         obs_checkpoints = np.asarray(self.smoother_configs['obs_checkpoints'])
         analysis_time = self.smoother_configs['analysis_time']
-        
+
         #
         # Retrieve the forecast parameters based on the prior distribution then evaluate the potential energy
         prior_distribution = self.prior_distribution
         forecast_time = self.smoother_configs['forecast_time']
-        
+
         # Check time settings:
         if (analysis_time - obs_checkpoints[0] ) >= self._model_step_size:
             print("Observations have to follow the assimilation times in this implementation!")
             raise ValueError
         else:
             pass
-            
+
         if abs(forecast_time-analysis_time)>self._time_eps or abs(window_bounds[0]-forecast_time)>self._time_eps:
             print("This implementation requires the forecast and analysis time to coincide at the beginning of the assimilation window!")
             print("Forecast time: ", forecast_time)
@@ -1921,7 +1926,7 @@ class HMCSmoother(SmoothersBase):
             raise ValueError
         else:
             pass
-                
+
         #
         if prior_distribution == 'gaussian':
             #
@@ -1935,19 +1940,19 @@ class HMCSmoother(SmoothersBase):
                 if forecast_state is None:
                     forecast_ensemble = self.smoother_configs['forecast_ensemble']
                     forecast_state = utility.ensemble_mean(forecast_ensemble)
-                    self.smoother_configs['forecast_ensemble'] = forecast_state.copy()
+                    self.smoother_configs['forecast_state'] = forecast_state.copy()
                     #
-            
+
             #
             if self._verbose:
                 print("In objective_function_value:")
                 print("in-state", current_state)
                 print("forecast_state", forecast_state)
                 print("obs_checkpoints", obs_checkpoints)
-                print("observations_list", observations_list)
+                # print("observations_list", observations_list)
                 raw_input("\npress Enter to continue")
                 #
-                
+
             #
             # 1- Observation/Innovation term
             #
@@ -1966,12 +1971,12 @@ class HMCSmoother(SmoothersBase):
                 scaled_obs_innov = obs_innov.copy()
                 scaled_obs_innov = model.observation_error_model.invR.vector_product(scaled_obs_innov)
                 # scaled_obs_innov = model.observation_error_model.invR.vector_product(obs_innov, in_place=False)
-                observation_term = 0.5 * (scaled_obs_innov.dot(obs_innov))
+                observation_term = scaled_obs_innov.dot(obs_innov)
                 #
             else:
                 obs_checkpoints = np.insert(obs_checkpoints, 0, forecast_time)
                 observation_term = 0.0
-            
+
             #
             num_obs_points = len(observations_list)
             # Forward to observation time instances and update observation term
@@ -1984,16 +1989,16 @@ class HMCSmoother(SmoothersBase):
                     local_state = tmp_trajectory.copy()
                 #
                 Hx = model.evaluate_theoretical_observation(local_state)
-                
+
                 # obs_innov = Hx.axpy(-1.0, observations_list[iter_ind], in_place=False)
                 obs_innov = observations_list[iter_ind].copy().scale(-1.0)
                 obs_innov = obs_innov.add(Hx, in_place=False)
                 scaled_obs_innov = obs_innov.copy()
                 scaled_obs_innov = model.observation_error_model.invR.vector_product(scaled_obs_innov)
-                
-                observation_term += 0.5 * (scaled_obs_innov.dot(obs_innov))
+
+                observation_term += scaled_obs_innov.dot(obs_innov)
                 #
-                
+
                 #
                 if self._verbose:
                     print("subinterval:" + repr(local_ckeckpoints))
@@ -2005,29 +2010,43 @@ class HMCSmoother(SmoothersBase):
                     print("observation_term", observation_term)
                     raw_input("\npress Enter to continue")
                     #
-            
-            
+
+
             #
             # 2- Background term
             lu, piv = self.prior_distribution_statistics['B_lu'], self.prior_distribution_statistics['B_piv']
             # print(self.prior_distribution_statistics['B'].get_numpy_array())
             #
-            deviations = local_state.axpy(-1.0, forecast_state, in_place=False)
-            # print("deviations", deviations[10:200])
-            scaled_deviations_numpy = lu_solve((lu, piv), deviations.get_numpy_array())
-            scaled_deviations = self.model.state_vector()
-            scaled_deviations[:] = scaled_deviations_numpy.copy()
+            state_dev = forecast_state.copy().scale(-1.0)  # <- state_dev = - forecast_state
+            state_dev = state_dev.add(in_state, in_place=False)  # state_dev = x -
+            scaled_state_dev = model.state_vector()
+            scaled_state_dev[:] = lu_solve((lu, piv), state_dev.get_numpy_array().copy())
+            background_term = scaled_state_dev.dot(state_dev)
+
+            # scaled_state_dev = model.background_error_model.invB.vector_product(scaled_state_dev)
+            # background_term = scaled_state_dev.dot(state_dev)
+
+            # deviations = local_state.axpy(-1.0, forecast_state, in_place=False)
+            # print("deviations", deviations)
+            # scaled_deviations_numpy = lu_solve((lu, piv), deviations.get_numpy_array())
+            # scaled_deviations = self.model.state_vector()
+            # scaled_deviations[:] = scaled_deviations_numpy.copy()
             # print("deviations", deviations)
             # print("scaled_deviations", scaled_deviations)
+            # #
+            # background_term = scaled_deviations.dot(deviations)
+
             #
-            background_term = scaled_deviations.dot(deviations)
-            
-            #
-            potential_energy_value = background_term + observation_term
+            potential_energy_value = 0.5 * (background_term + observation_term)
             if self._verbose:
+                print("forecast_state", forecast_state)
+                print("state_dev", state_dev)
+                print("scaled_deviations", scaled_state_dev)
+                print("background_term", background_term)
+                #
                 print("Smoothing Chain is running; Background_term", background_term, "Observation_term", observation_term, "potential_energy_value", potential_energy_value)
                 #
-                
+
         elif prior_distribution.lower() in ['gmm', 'gaussian_mixture', 'gaussian-mixture']:
             # The GMM model should be attached to the smoother object right now.
             #
@@ -2039,7 +2058,7 @@ class HMCSmoother(SmoothersBase):
                 print("observations_list", observations_list)
                 raw_input("\npress Enter to continue")
                 #
-                
+
             #
             # 1- Observation/Innovation term
             #
@@ -2063,7 +2082,7 @@ class HMCSmoother(SmoothersBase):
             else:
                 obs_checkpoints = np.insert(obs_checkpoints, 0, forecast_time)
                 observation_term = 0.0
-            
+
             #
             num_obs_points = len(observations_list)
             # Forward to observation time instances and update observation term
@@ -2076,16 +2095,16 @@ class HMCSmoother(SmoothersBase):
                     local_state = tmp_trajectory.copy()
                 #
                 Hx = model.evaluate_theoretical_observation(local_state)
-                
+
                 # obs_innov = Hx.axpy(-1.0, observations_list[iter_ind], in_place=False)
                 obs_innov = observations_list[iter_ind].copy().scale(-1.0)
                 obs_innov = obs_innov.add(Hx, in_place=False)
                 scaled_obs_innov = obs_innov.copy()
                 scaled_obs_innov = model.observation_error_model.invR.vector_product(scaled_obs_innov)
-                
+
                 observation_term += 0.5 * (scaled_obs_innov.dot(obs_innov))
                 #
-                
+
                 #
                 if self._verbose:
                     print("subinterval:" + repr(local_ckeckpoints))
@@ -2097,8 +2116,8 @@ class HMCSmoother(SmoothersBase):
                     print("observation_term", observation_term)
                     raw_input("\npress Enter to continue")
                     #
-            
-            
+
+
             #
             # 2- Background term
             background_term = self._hmc_gmm_evaluate_potential_log_terms_val(local_state)
@@ -2122,14 +2141,14 @@ class HMCSmoother(SmoothersBase):
         Evaluate the forecast terms in the potential energy function formulation in the case of GMM prior.
         These are the terms other than the observation/innovation term.
         Two of them include LOVELY logarithmic terms, this is why I named it like that.
-        
+
         Args:
             current_state: current (position) state of the chain
-            
+
         Returns:
             potential_energy_value: scalar,
             the value of the forecast terms int the posterior negative logarithm (potential energy function).
-            
+
         """
         # Extract GMM components for ease of access
         gmm_optimal_covar_type = self.prior_distribution_statistics['gmm_optimal_covar_type']
@@ -2248,7 +2267,7 @@ class HMCSmoother(SmoothersBase):
 
         # Now evaluate the forecast term and return
         forecast_term_val -= np.log(1 + sum_val)
-        # 
+        #
         return forecast_term_val
         #
 
@@ -2256,17 +2275,17 @@ class HMCSmoother(SmoothersBase):
     def _hmc_potential_energy_gradient(self, current_state, fd_validation=False, FD_eps=1e-7, FD_central=True, debug=True):
         """
         Evaluate the potential energy gradient only.  Potential energy here, is the 4D-Var cost functional.
-        
+
         Args:
             current_state: current (position) state of the chain
-            fd_validation (default False): use finiti difference approximation of the gradient to validate the 
+            fd_validation (default False): use finiti difference approximation of the gradient to validate the
                 calculated gradient.
             debug (default False): used to check the entries of the calculated gradient for invalid (inf) values
-            
+
         Returns:
             potential_energy_gradient: the gradient of the potential energy function at the given position,
                 this is the derivative of the negative-log of the target posterior.
-                
+
         """
         #
         if isinstance(current_state, np.ndarray):
@@ -2274,11 +2293,11 @@ class HMCSmoother(SmoothersBase):
             local_state[:] = current_state.copy()
         else:
             local_state = current_state.copy()
-        
+
         #
         model = self.model
         window_bounds = self.smoother_configs['window_bounds']
-        
+
         #
         # Retrieve the observations list, and time settings
         observations_list = self.smoother_configs['observations_list']
@@ -2288,19 +2307,19 @@ class HMCSmoother(SmoothersBase):
             raise ValueError
         else:
             obs_checkpoints = np.asarray(self.smoother_configs['obs_checkpoints'])
-        
+
         #
         # Retrieve the forecast parameters based on the prior distribution then evaluate the potential energy
         prior_distribution = self.prior_distribution
         forecast_time = self.smoother_configs['forecast_time']
-        
+
         # Check time settings:
         if (analysis_time - obs_checkpoints[0] ) >= self._model_step_size:
             print("Observations have to follow the assimilation times in this implementation!")
             raise ValueError
         else:
             pass
-            
+
         if abs(forecast_time-analysis_time)>self._time_eps or (window_bounds[0]-forecast_time)>self._time_eps:
             print("This implementation requires the forecast and analysis time to coincide at the beginning of the assimilation window!")
             print("Forecast time: ", forecast_time)
@@ -2309,8 +2328,8 @@ class HMCSmoother(SmoothersBase):
             raise ValueError
         else:
             pass
-                
-        
+
+
         #
         if prior_distribution == 'gaussian':
             # Get the forecast state if the prior is Gaussian and forecast_state is None.
@@ -2324,11 +2343,11 @@ class HMCSmoother(SmoothersBase):
                     forecast_ensemble = self.smoother_configs['forecast_ensemble']
                     forecast_state = utility.ensemble_mean(forecast_ensemble)
                     self.smoother_configs['forecast_ensemble'] = forecast_state
-            
+
             #
             # 1- Evaluate the observation terms:
             analysis_time = self.smoother_configs['analysis_time']
-            
+
             if (analysis_time - obs_checkpoints[0] ) >= self._model_step_size:
                 print("Observations have to follow the assimilation times in this implementation!")
                 print("analysis_time", analysis_time)
@@ -2336,7 +2355,7 @@ class HMCSmoother(SmoothersBase):
                 raise ValueError
             else:
                 pass
-            
+
             #
             if self._verbose:
                 print("In objective_function_gradient:")
@@ -2345,20 +2364,20 @@ class HMCSmoother(SmoothersBase):
                 print("obs_checkpoints", obs_checkpoints)
                 print("observations_list", observations_list)
                 raw_input("\npress Enter to continue")
-            
+
             #
             # 1- forward checkpointing:
             checkpointed_state = local_state.copy()
             checkpointed_states = []  # this holds states only at observation time instances
             checkpointed_times = []
-            
+
             if abs(forecast_time - obs_checkpoints[0]) <= self._time_eps:
                 checkpointed_states.append(local_state)
                 checkpointed_times.append(forecast_time)
                 #
             elif (obs_checkpoints[0] - forecast_time) >= self._model_step_size:
                 local_ckeckpoints = [forecast_time, obs_checkpoints[0]]
-                
+
                 tmp_trajectory = model.integrate_state(initial_state=checkpointed_state.copy(), checkpoints=local_ckeckpoints)
                 #
                 if isinstance(tmp_trajectory, list):
@@ -2372,7 +2391,7 @@ class HMCSmoother(SmoothersBase):
                 print("obs_checkpoints[0]", obs_checkpoints[0])
                 print("forecast_time", forecast_time)
                 raise ValueError
-                
+
             #
             for t0, t1 in zip(obs_checkpoints[:-1], obs_checkpoints[1:]):
                 local_checkpoints = np.array([t0, t1])
@@ -2384,11 +2403,11 @@ class HMCSmoother(SmoothersBase):
                 checkpointed_states.append(checkpointed_state.copy())
                 checkpointed_times.append(t1)
                 #
-                
+
             if self._verbose:
                 print("checkpointed_times", checkpointed_times)
                 print("checkpointed_states", checkpointed_states)
-                
+
             #
             # 2- backward propagation, and sensitivity update:
             last_obs_ind = len(observations_list) - 1
@@ -2396,15 +2415,15 @@ class HMCSmoother(SmoothersBase):
             if len(checkpointed_states) != len(observations_list):
                 print("Checkpointed states don't match observation time indexes!")
                 raise ValueError
-            
-        
+
+
             # Initialize the sensitivity matrix:
             Hx = model.evaluate_theoretical_observation(checkpointed_states[-1])
             obs = observations_list[-1]
             obs_innov = Hx.axpy(-1.0, obs, in_place=False)  # innov = H(x) - y
             scaled_obs_innov = model.observation_error_model.invR.vector_product(obs_innov, in_place=False)
             lambda_ = model.observation_operator_Jacobian_T_prod_vec(checkpointed_states[-1], scaled_obs_innov)
-            
+
             #
             if self._verbose:
                 print("\nIn objective_function_gradient:")
@@ -2414,8 +2433,8 @@ class HMCSmoother(SmoothersBase):
                 print("scaled_obs_innov", scaled_obs_innov)
                 print("Initial lambda_", lambda_)
                 raw_input("\npress Enter to continue")
-            
-            
+
+
             # backward propagation, and update sensitivity matrix (lambda)
             adjoint_integrator = model._adjoint_integrator
             for t0_ind, t1_ind in zip(xrange(last_obs_ind-1, -1, -1), xrange(last_obs_ind, 0, -1)):
@@ -2423,9 +2442,9 @@ class HMCSmoother(SmoothersBase):
                 #
                 lambda_k = adjoint_integrator.integrate_adj(y=checkpointed_states[t0_ind],
                                                             lambda_=lambda_,
-                                                            tin=t0, 
+                                                            tin=t0,
                                                             tout=t1
-                                                            )            
+                                                            )
                 #
                 if isinstance(lambda_k, np.ndarray):
                     try:
@@ -2439,7 +2458,7 @@ class HMCSmoother(SmoothersBase):
                 else:
                     print("Returned Sensitivity matrix is of unrecognized Type: %s" % repr(type(lambda_k)) )
                     raise TypeError
-                
+
                 Hx = model.evaluate_theoretical_observation(checkpointed_states[t0_ind])
                 obs = observations_list[t0_ind]
                 obs_innov = Hx.axpy(-1.0, obs, in_place=False)  # innov = H(x) - y
@@ -2460,14 +2479,14 @@ class HMCSmoother(SmoothersBase):
                     print("lambda_k", lambda_k)
                     print("lambda_", lambda_)
                     raw_input("\npress Enter to continue")
-                            
+
             #
             if (obs_checkpoints[0] - forecast_time) >= self._model_step_size:
                 lambda_ = adjoint_integrator.integrate_adj(y=local_state,
                                                            lambda_=lambda_,
-                                                           tin=forecast_time, 
+                                                           tin=forecast_time,
                                                            tout=obs_checkpoints[0]
-                                                           )     
+                                                           )
                 if self._verbose:
                     print("(obs_checkpoints[0] - forecast_time) >= self._model_step_size")
                     print("Propagating back from time %f to time %f" % (obs_checkpoints[0], forecast_time))
@@ -2482,38 +2501,39 @@ class HMCSmoother(SmoothersBase):
                     observation_term = lambda_
                 else:
                     print("Returned Sensitivity matrix is of unrecognized Type: %s" % repr(type(lambda_)) )
-                    raise TypeError            
+                    raise TypeError
                 #
             elif abs(forecast_time - obs_checkpoints[0]) <= self._time_eps:
                 if self._verbose:
                     print("abs(forecast_time - obs_checkpoints[0]) <= self._time_eps")
-                observation_term = lambda_            
+                observation_term = lambda_
             #
             else:
                 print("Forecast time point can't be after first observation time!")
                 raise ValueError
             #
             if self._verbose:
-                print("|||||||| FINAL LAMBDA (observation term) >>>>> ", observation_term)   
+                print("|||||||| FINAL LAMBDA (observation term) >>>>> ", observation_term)
                 raw_input("\npress Enter to continue")
-            
-            
-            # 
+
+
+            #
             # 2- Background term
             lu, piv = self.prior_distribution_statistics['B_lu'], self.prior_distribution_statistics['B_piv']
             deviations = local_state.axpy(-1.0, forecast_state, in_place=False)
             scaled_deviations_numpy = lu_solve((lu, piv), deviations.get_numpy_array())
             background_term = self.model.state_vector()
-            background_term[:] = scaled_deviations_numpy.copy()
+            background_term[:] = scaled_deviations_numpy[:]
             #
-            potential_energy_gradient = background_term.add(self.model.observation_operator_Jacobian_T_prod_vec(local_state, observation_term))
+            # potential_energy_gradient = background_term.add(self.model.observation_operator_Jacobian_T_prod_vec(local_state, observation_term))  # why!?
+            potential_energy_gradient = background_term.add(observation_term)
         #
         elif prior_distribution in ['gmm', 'gaussian_mixture', 'gaussian-mixture']:
-            # 
+            #
             #
             # 1- Evaluate the observation terms:
             analysis_time = self.smoother_configs['analysis_time']
-            
+
             if (analysis_time - obs_checkpoints[0] ) >= self._model_step_size:
                 print("Observations have to follow the assimilation times in this implementation!")
                 print("analysis_time", analysis_time)
@@ -2521,7 +2541,7 @@ class HMCSmoother(SmoothersBase):
                 raise ValueError
             else:
                 pass
-            
+
             #
             if self._verbose:
                 print("In objective_function_gradient:")
@@ -2530,20 +2550,20 @@ class HMCSmoother(SmoothersBase):
                 print("obs_checkpoints", obs_checkpoints)
                 print("observations_list", observations_list)
                 raw_input("\npress Enter to continue")
-            
+
             #
             # a) forward checkpointing:
             checkpointed_state = local_state.copy()
             checkpointed_states = []  # this holds states only at observation time instances
             checkpointed_times = []
-            
+
             if abs(forecast_time - obs_checkpoints[0]) <= self._time_eps:
                 checkpointed_states.append(local_state)
                 checkpointed_times.append(forecast_time)
                 #
             elif (obs_checkpoints[0] - forecast_time) >= self._model_step_size:
                 local_ckeckpoints = [forecast_time, obs_checkpoints[0]]
-                
+
                 tmp_trajectory = model.integrate_state(initial_state=checkpointed_state.copy(), checkpoints=local_ckeckpoints)
                 #
                 if isinstance(tmp_trajectory, list):
@@ -2557,7 +2577,7 @@ class HMCSmoother(SmoothersBase):
                 print("obs_checkpoints[0]", obs_checkpoints[0])
                 print("forecast_time", forecast_time)
                 raise ValueError
-                
+
             #
             for t0, t1 in zip(obs_checkpoints[:-1], obs_checkpoints[1:]):
                 local_checkpoints = np.array([t0, t1])
@@ -2569,11 +2589,11 @@ class HMCSmoother(SmoothersBase):
                 checkpointed_states.append(checkpointed_state.copy())
                 checkpointed_times.append(t1)
                 #
-                
+
             if self._verbose:
                 print("checkpointed_times", checkpointed_times)
                 print("checkpointed_states", checkpointed_states)
-                
+
             #
             # b) backward propagation, and sensitivity update:
             last_obs_ind = len(observations_list) - 1
@@ -2581,15 +2601,15 @@ class HMCSmoother(SmoothersBase):
             if len(checkpointed_states) != len(observations_list):
                 print("Checkpointed states don't match observation time indexes!")
                 raise ValueError
-            
-        
+
+
             # Initialize the sensitivity matrix:
             Hx = model.evaluate_theoretical_observation(checkpointed_states[-1])
             obs = observations_list[-1]
             obs_innov = Hx.axpy(-1.0, obs, in_place=False)  # innov = H(x) - y
             scaled_obs_innov = model.observation_error_model.invR.vector_product(obs_innov, in_place=False)
             lambda_ = model.observation_operator_Jacobian_T_prod_vec(checkpointed_states[-1], scaled_obs_innov)
-            
+
             #
             if self._verbose:
                 print("\nIn objective_function_gradient:")
@@ -2599,8 +2619,8 @@ class HMCSmoother(SmoothersBase):
                 print("scaled_obs_innov", scaled_obs_innov)
                 print("Initial lambda_", lambda_)
                 raw_input("\npress Enter to continue")
-            
-            
+
+
             # backward propagation, and update sensitivity matrix (lambda)
             adjoint_integrator = model._adjoint_integrator
             for t0_ind, t1_ind in zip(xrange(last_obs_ind-1, -1, -1), xrange(last_obs_ind, 0, -1)):
@@ -2608,9 +2628,9 @@ class HMCSmoother(SmoothersBase):
                 #
                 lambda_k = adjoint_integrator.integrate_adj(y=checkpointed_states[t0_ind],
                                                             lambda_=lambda_,
-                                                            tin=t0, 
+                                                            tin=t0,
                                                             tout=t1
-                                                            )            
+                                                            )
                 #
                 if isinstance(lambda_k, np.ndarray):
                     try:
@@ -2624,7 +2644,7 @@ class HMCSmoother(SmoothersBase):
                 else:
                     print("Returned Sensitivity matrix is of unrecognized Type: %s" % repr(type(lambda_k)) )
                     raise TypeError
-                
+
                 Hx = model.evaluate_theoretical_observation(checkpointed_states[t0_ind])
                 obs = observations_list[t0_ind]
                 obs_innov = Hx.axpy(-1.0, obs, in_place=False)  # innov = H(x) - y
@@ -2645,14 +2665,14 @@ class HMCSmoother(SmoothersBase):
                     print("lambda_k", lambda_k)
                     print("lambda_", lambda_)
                     raw_input("\npress Enter to continue")
-                            
+
             #
             if (obs_checkpoints[0] - forecast_time) >= self._model_step_size:
                 lambda_ = adjoint_integrator.integrate_adj(y=local_state,
                                                            lambda_=lambda_,
-                                                           tin=forecast_time, 
+                                                           tin=forecast_time,
                                                            tout=obs_checkpoints[0]
-                                                           )     
+                                                           )
                 if self._verbose:
                     print("(obs_checkpoints[0] - forecast_time) >= self._model_step_size")
                     print("Propagating back from time %f to time %f" % (obs_checkpoints[0], forecast_time))
@@ -2667,23 +2687,23 @@ class HMCSmoother(SmoothersBase):
                     observation_term = lambda_
                 else:
                     print("Returned Sensitivity matrix is of unrecognized Type: %s" % repr(type(lambda_)) )
-                    raise TypeError            
+                    raise TypeError
                 #
             elif abs(forecast_time - obs_checkpoints[0]) <= self._time_eps:
                 if self._verbose:
                     print("abs(forecast_time - obs_checkpoints[0]) <= self._time_eps")
-                observation_term = lambda_            
+                observation_term = lambda_
             #
             else:
                 print("Forecast time point can't be after first observation time!")
                 raise ValueError
             #
             if self._verbose:
-                print("|||||||| FINAL LAMBDA (observation term) >>>>> ", observation_term)   
+                print("|||||||| FINAL LAMBDA (observation term) >>>>> ", observation_term)
                 raw_input("\npress Enter to continue")
-                
-                
-            
+
+
+
             #
             # 2- Background term
             background_term = self._hmc_gmm_evaluate_potential_log_terms_grad(in_state=local_state)
@@ -2697,10 +2717,10 @@ class HMCSmoother(SmoothersBase):
 
         #
         if fd_validation:
-            self.__validate_gradient(self, local_state, potential_energy_gradient, FD_eps=FD_eps, FD_central=FD_central)
-            
+            self.__validate_gradient(local_state, potential_energy_gradient, FD_eps=FD_eps, FD_central=FD_central)
+
             print('local_state', local_state)
-        
+
         #
         if self._verbose:
             print("^"*100+"\n"+"^"*100)
@@ -2710,10 +2730,10 @@ class HMCSmoother(SmoothersBase):
             print("background_term: ", background_term)
             print("observation_term", observation_term)
             print("lambda_", lambda_)
-            
+
             print("Gradient:", potential_energy_gradient)
             print("v"*100+"\n"+"v"*100)
-        
+
         if debug:
             if np.isinf(potential_energy_gradient[:]).any():
                 print('potential_energy_gradient', potential_energy_gradient)
@@ -2722,11 +2742,11 @@ class HMCSmoother(SmoothersBase):
                 print('background_term', background_term)
                 print('innovations', innovations)
                 print('model_observation', model_observation)
-        
+
         #
         if isinstance(current_state, np.ndarray):
             potential_energy_gradient = potential_energy_gradient.get_numpy_array()
-        
+
         return potential_energy_gradient
         #
 
@@ -2735,10 +2755,10 @@ class HMCSmoother(SmoothersBase):
         """
         Evaluate the gradient of the forecast terms in the potential energy function formulation in the case of GMM prior.
         :return: a state_vector: derivative of the forecast term with respect to hte passed current_state
-        
+
         Args:
             current_state: current (position) state of the chain
-            
+
         Returns:
             potential_energy_gradient: model.state_vector,
                 the derivative of the forecast terms in the posterior negative logarithm (potential energy function).
@@ -2869,7 +2889,7 @@ class HMCSmoother(SmoothersBase):
         for comp_ind in xrange(gmm_num_components-1):
             other_ind = rest_indices[comp_ind]
             sum_term_val = sum_terms[other_ind].copy()
-            # 
+            #
             gradients_deviation = scaled_deviations_list[max_term_ind].axpy(-1.0, scaled_deviations_list[other_ind], in_place=False)
             gradient = gradient.add(gradients_deviation.scale(sum_term_val))
 
@@ -2880,19 +2900,19 @@ class HMCSmoother(SmoothersBase):
         #
 
 
-    
+
     #
     #
     def __validate_gradient(self, state, gradient, FD_eps=1e-5, FD_central=False):
         """
         Use Finite Difference to validate the gradient
-        
+
         Args:
-            state: 
-            gradient: 
-            FD_eps: 
+            state:
+            gradient:
+            FD_eps:
             FD_central:
-            
+
         """
         #
         # Use finite differences to validate the Gradient (if needed):
@@ -2907,13 +2927,13 @@ class HMCSmoother(SmoothersBase):
         else:
             print("Passed state is of unrecognized Type: %s" % repr(type(state)) )
             raise TypeError
-        
+
         sep = "\n"+"~"*80+"\n"
         # print some statistics for monitoring:
         print(sep + "FD Validation of the Gradient" + sep)
         print("  + Maximum gradient entry :", grad_array.max())
         print("  + Minimum gradient entry :", grad_array.min())
-        
+
         #
         perturbed_state = self.model.state_vector()
         state_perturb = np.zeros_like(grad_array)
@@ -2922,7 +2942,7 @@ class HMCSmoother(SmoothersBase):
         if not FD_central:
             f0 = self._hmc_potential_energy_value(state)
         #
-        
+
         for i in xrange(state_size):
             state_perturb[:] = 0.0
             state_perturb[i] = eps
@@ -2933,29 +2953,29 @@ class HMCSmoother(SmoothersBase):
             #
             perturbed_state[:] = state_array + state_perturb
             f1 = self._hmc_potential_energy_value(perturbed_state)
-            
+
             if FD_central:
                 fd_grad[i] = (f1-f0)/(2.0*eps)
             else:
                 fd_grad[i] = (f1-f0)/(eps)
-            
+
             err = (grad_array[i] - fd_grad[i]) / fd_grad[i]
             print(">>>>Gradient/FD>>>> %4d| Grad = %+8.6e\t FD-Grad = %+8.6e\t Rel-Err = %+8.6e <<<<" % (i, grad_array[i], fd_grad[i], err))
-    
-        
-        
+
+
+
     #
     def print_cycle_results(self):
         """
         Print smoothing results from the current cycle to the main terminal
         A check on the corresponding options in the configurations dictionary is made to make sure
         saving is requested.
-        
+
         Args:
-        
+
         Returns:
             None
-            
+
         """
         class OldStyle: pass
         if issubclass(OldStyle().__class__, object):
@@ -2972,14 +2992,14 @@ class HMCSmoother(SmoothersBase):
         """
         Save smoothing results from the current cycle to file(s).
         Check the output directory first. If the directory does not exist, create it.
-        
+
         Args:
             output_dir: full path of the directory to save results in
             clean_out_dir (default False): remove the contents of the output directory
-                      
+
         Returns:
             None
-            
+
         """
         # Retrieve output configurations
         output_configs = self.output_configs
@@ -3142,7 +3162,7 @@ class HMCSmoother(SmoothersBase):
         else:
             # rmse file does exist. Header should be already there!
             pass
-            
+
         # Now rmse results file exists --> Append rmse results to the file:
         forecast_time = self.smoother_configs['forecast_time']
         analysis_time = self.smoother_configs['analysis_time']
@@ -3161,7 +3181,7 @@ class HMCSmoother(SmoothersBase):
         with open(rmse_file_path, mode='a') as file_handler:
             file_handler.write(output_line)
         #
-        
+
         # Write Smoother configurations
         if file_output_file_format in ['text', 'ascii']:
             #
@@ -3170,10 +3190,10 @@ class HMCSmoother(SmoothersBase):
                 gmm_prior_settings = {}
                 prior_distribution = 'gaussian'
                 gmm_conf = {}
-                                
+
             elif smoother_configs['prior_distribution'] == 'gmm':
                 switched_to_Gaussian_prior = self.switched_to_Gaussian_prior
-                
+
                 if switched_to_Gaussian_prior:
                     gmm_prior_settings = {}
                     prior_distribution = 'gaussian'
@@ -3183,8 +3203,8 @@ class HMCSmoother(SmoothersBase):
                     gmm_prior_settings = smoother_configs['gmm_prior_settings']
                     prior_distribution = 'gmm'
                     gmm_conf = output_configs['smoother_statistics']['gmm_prior_statistics']
-                
-            
+
+
             # TODO: Rethink the outputting strategy of this smoother...
             # save smoother and model configurations (a copy under observation directory and another under state directory)...
             #
@@ -3201,8 +3221,8 @@ class HMCSmoother(SmoothersBase):
                               forecast_time=smoother_configs['forecast_time']
                               )
             #
-            output_conf = output_configs            
-            
+            output_conf = output_configs
+
             # Save chain diagnostics (statistics)
             try:
                 chain_diagnostics = output_configs['smoother_statistics']['chain_diagnostics']
@@ -3210,7 +3230,7 @@ class HMCSmoother(SmoothersBase):
             except (ValueError, NameError, AttributeError, KeyError):
                 print("Couldn't retrieve chain diagnostics for the smoother?")
                 # print('output_configs', output_configs)
-                chain_diagnostics = {}            
+                chain_diagnostics = {}
 
             if prior_distribution in ['gmm', 'gaussian_mixture', 'gaussian-mixture']:
                 utility.write_dicts_to_config_file('setup.dat', cycle_observations_out_dir,
@@ -3240,12 +3260,12 @@ class Momentum:
     """
     The momentum variable P in the HMC context is an essential component of the sampling process.
     Here we model it giving it all the necessary functionality to ease working with it.
-    
+
     Initialize the parameters of the momentum variable:
         - The mass matrix (M)
         - Square root of M for generating scaled momentum
         - Inverse of M for evaluating the kinetic energy
-    
+
     Args:
         mass_matrix: a scalar or a numpy array.
             If it is scalar, it will be replicated based on the mass_matrix_shape.
@@ -3255,13 +3275,13 @@ class Momentum:
             This should really be 'diagonal'
         dimension: space dimension of the momentum variable
         model: model object
-        diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on 
+        diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on
             finding the mass matrix inverse.
-        
-        
+
+
     Returns:
         None
-            
+
     """
 
     def __init__(self, mass_matrix, mass_matrix_shape='diagonal', dimension=None, model=None, verbose=False):
@@ -3282,7 +3302,7 @@ class Momentum:
             - The mass matrix (M)
             - Square root of M for generating scaled momentum
             - Inverse of M for evaluating the kinetic energy
-        
+
         Args:
             mass_matrix: a scalar or a numpy array.
                  If it is scalar, it will be replicated based on the mass_matrix_shape.
@@ -3292,12 +3312,12 @@ class Momentum:
                 This should really be 'diagonal'
             dimension: space dimension of the momentum variable
             model: model object
-            diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on 
+            diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on
                 finding the mass matrix inverse.
-                
+
         Returns:
             None
-                    
+
         """
         self._mass_matrix_shape = mass_matrix_shape.lower()
         if self._mass_matrix_shape not in ['diagonal', 'full']:
@@ -3381,7 +3401,7 @@ class Momentum:
             - The mass matrix (M)
             - Square root of M for generating scaled momentum
             - Inverse of M for evaluating the kinetic energy
-        
+
         Args:
             mass_matrix: a scalar or a numpy array.
                  If it is scalar, it will be replicated based on the mass_matrix_shape.
@@ -3391,12 +3411,12 @@ class Momentum:
                 This should really be 'diagonal'
             dimension: space dimension of the momentum variable
             model: model object
-            diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on 
+            diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on
                 finding the mass matrix inverse.
-                
+
         Returns:
             None
-            
+
         """
         #
         if mass_matrix_shape is None:
@@ -3485,7 +3505,7 @@ class Momentum:
                 raise ValueError("Unrecognized mass matrix shape!!")
         else:
             raise NotImplementedError("Mass matrix as a numpy array is Not yet supported! Use model object instead!")
-        
+
         #
         return out_momentum_vec
         #
@@ -3540,6 +3560,3 @@ class Momentum:
         #
         return kinetic_energy
         #
-        
-        
-

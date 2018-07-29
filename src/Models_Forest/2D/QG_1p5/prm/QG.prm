@@ -3,13 +3,13 @@
   scheme = 'rk4'
   verbose = 1
   F = 1600
-  RKH2 = 2e-12
+  RKH2 = 4e-11
   tend = 0
-  dtout = 1.25
-  R = 1e-05
+  dtout = 5
+  r = 4e-05
   rstart = 0
-  RKB = 0
-  dt = 1.25
-  outfname = ''
-  RKH = 0
+  RKB = 0.0
+  dt = 5.0
+  outfname = 'qgt_samples-r=4e-5,dt=5,RKH=2e-7,RKH2=4e-11.nc'
+  RKH = 2e-07
 /

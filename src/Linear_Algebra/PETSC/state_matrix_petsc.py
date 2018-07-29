@@ -24,32 +24,44 @@ import copy
 import numpy as np
 import scipy.linalg as slinalg
 
-from state_vector_numpy import StateVectorNumpy
+from state_vector_petsc import StateVector_PETSCSeq
 from state_matrix_base import StateMatrixBase
+try:
+    PETSc
+except:
+    import sys, petsc4py
+    petsc4py.init(sys.argv)
+    from petsc4py import PETSc
 
 
-class StateMatrixNumpy(StateMatrixBase):
+class StateMatrixPETScDense(StateMatrixBase):
     """
-    Numpy implementation of model state matrix operations.
-
+    Initial PETSC implementation of model state matrix operations.
+    
     A model object can choose this implementation to present it's StateMatrix, and the associated operations/functionalities.
-
+    
     Args:
         model_matrix_ref: a reference to the model's matrix object to be wrapped.
             This could be a reference to a numpy 2d array for example.
             It could even be a reference to the initial index of some bizzare model-based structure.
             All is needed is that the implemented methods be aware of this structure and handle it properly.
-
+    
     """
 
     def __init__(self, model_matrix_ref):
-
+        
         assert isinstance(model_matrix_ref, np.ndarray)
         if model_matrix_ref.ndim != 2:
             raise AssertionError("model_matrix_ref passed is not a two-dimensional NumpyArray.")
+        if model_matrix_ref.shape[0] != model_matrix_ref.shape[1]:
+            raise AssertionError("model_matrix_ref passed is not a SQUARE two-dimensional NumpyArray.")
 
-        self._raw_matrix = model_matrix_ref
-        #
+        self._raw_matrix = PETSc.Mat().createDense(model_matrix_ref.shape[-1], array=model_matrix_ref)
+        
+        # reserve a KSP solver context
+        self._ksp = None
+        
+        #   
         # update object's attributes
         self._update_attributes()
         #
@@ -59,33 +71,29 @@ class StateMatrixNumpy(StateMatrixBase):
         Update the attributes of the reference matrix
         """
         # set basic attributes of the reference matrix
-        self.__str_type = 'numpy.ndarray'
-        self.__shape = self._raw_matrix.shape
-        self.__size = self._raw_matrix.size
+        self.__str_type = 'PETScDenseMat'
+        self.__shape = self._raw_matrix.size
+        self.__size = self.__shape[0] * self.__shape[-1]
         #
 
     def set_raw_matrix_ref(self, model_matrix_ref):
         """
         Set the model matrix reference to a new object.
-        This should do what the constructor is doing. This however, can be called if the reference of the
+        This should do what the constructor is doing. This however, can be called if the reference of the 
         underlying data structure is to be updated after initialization.
-
+        
         Args:
             model_matrix_ref: a reference (pointer) to the model's state matrix object.
                 This could be a reference to a numpy array for example.
                 It could even be a reference to the initial index of some bizzare model-based structure.
                 All is needed is that the implemented methods be aware of this structure and handle it properly.
-
+        
         """
-        assert isinstance(model_matrix_ref, np.ndarray)
-        if model_matrix_ref.ndim != 2:
-            raise AssertionError("model_matrix_ref passed is not a two-dimensional NumpyArray.")
-
         self._raw_matrix = model_matrix_ref
         #
         # update object's attributes
         self._update_attributes()
-        #
+        #        
 
     def get_raw_matrix_ref(self):
         """
@@ -93,7 +101,7 @@ class StateMatrixNumpy(StateMatrixBase):
 
         Returns:
             a reference to the model's matrix object.
-
+        
         """
         return self._raw_matrix
         #
@@ -101,12 +109,12 @@ class StateMatrixNumpy(StateMatrixBase):
     def get_numpy_array(self):
         """
         Returns the state matrix (a copy) as a 2D NxN Numpy array.
-
+        
         Returns:
             a Numpy representation (2D NxN Numpy array) of the nuderlying state matrix data structure.
-
+        
         """
-        return copy.deepcopy(self._raw_matrix)
+        return copy.deepcopy(self._raw_matrix.getDenseArray())
         #
 
     def copy(self):
@@ -119,201 +127,215 @@ class StateMatrixNumpy(StateMatrixBase):
     def scale(self, alpha, in_place=True):
         """
         BLAS-like method; scale the underlying StateMatrix by the constant (scalar) alpha.
-
+        
         Args:
             alpha: scalar
             in_place: If true scaling is applied (in-place) to (self).
                 If False, a new copy will be returned.
-
+        
         Returns:
             The StateMatrix object scaled by the constant (scalar) alpha.
-
+        
         """
         if not in_place:
             result_matrix = self.copy()
         else:
             result_matrix = self
-        result_matrix._raw_matrix = result_matrix._raw_matrix * alpha
+        result_matrix._raw_matrix.scale(alpha)
         return result_matrix
         #
 
     def vector_product(self, vector, in_place=True):
         """
         Return the vector resulting from the right multiplication of the matrix and vector.
-
+        
         Args:
             vector: StateVector object
             in_place: If True, matrix-vector product is applied (in-place) to the passed StateVector
                 If False, a new copy will be returned.
-
+        
         Returns:
             The product of self by the passed vector.
-
+        
         """
-        assert isinstance(vector, StateVectorNumpy)
+        assert isinstance(vector, StateVector_PETSCSeq)
         #
+        result_vector = vector.copy()
+        
+        self._raw_matrix.mult(vector, result_vector)
+        
         if not in_place:
-            result_vector = vector.copy()
+            pass
         else:
-            result_vector = vector
-        result_vector._raw_vector = np.dot(self._raw_matrix, vector._raw_vector)
+            for i in xrange(vector.size):
+                vector[i] = result_vector[i]
         return result_vector
         #
 
     def transpose_vector_product(self, vector, in_place=True):
         """
         Right multiplication of the matrix-transpose.
-
+        
         Args:
             vector: StateVector object
             in_place: If True, matrix-transpose-vector product is applied (in-place) to the passed vector
                 If False, a new copy will be returned.
-
+        
         Returns:
             The product of self-transposed by the passed vector.
-
+        
         """
+        result_vector = vector.copy()
+        
+        self._raw_matrix.multTranspose(vector, result_vector)
+        
         if not in_place:
-            result_vector = vector.copy()
+            pass
         else:
-            result_vector = vector
-        result_vector._raw_vector = np.dot(vector._raw_vector, self._raw_matrix)
+            if False:  # TODO: discuss!
+                for i in xrange(vector.size):
+                    vector[i] = result_vector[i]
+            else:
+                vector = result_vector
         return result_vector
         #
 
     def matrix_product(self, other, in_place=True):
         """
         Right multiplication by a matrix (other).
-
+        
         Args:
             other: another StateMatrix object of the same type as this object
             in_place: If True, matrix-matrix product is applied (in-place) to  (self)
                 If False, a new copy will be returned.
-
+        
         Returns:
             The product of self by the passed StateMatrix (other).
-
+        
         """
+        result_mat = self.copy()
+        self._raw_matrix.matMult(other, result_mat)
+        
         if not in_place:
-            result_mat = self.copy()
+            pass
         else:
-            result_mat = self
-        result_mat._raw_matrix = np.dot(result_mat._raw_matrix, other._raw_matrix)
+            other = result_mat
         return result_mat
         #
 
     def transpose_matrix_product(self, other, in_place=True):
         """
         Right multiplication of the matrix-transpose by a matrix (other).
-
+        
         Args:
             other: another StateMatrix object of the same type as this object
             in_place: If True, matrix-transpose-matrix product is applied (in-place) to  (self)
                 If False, a new copy will be returned.
-
+        
         Returns:
             The product of self-transposed by the passed StateMatrix (other).
-
+        
         """
+        result_mat = self.copy()
+        self._raw_matrix.transposeMatMult(other, result_mat)
+        
         if not in_place:
-            result_mat = self.copy()
+            pass
         else:
-            result_mat = self
-        result_mat._raw_matrix = np.dot(result_mat._raw_matrix.T, other._raw_matrix)
+            other = result_mat
         return result_mat
         #
 
     def transpose(self, in_place=True):
         """
         Return slef transposed
-
+        
         Args:
             in_place: If True, matrix transpose is applied (in-place) to  (self)
                 If False, a new copy will be returned.
-
+        
         Returns:
             self (or a copy of it) transposed
-
+        
         """
+        result_mat = self.copy()
+        self._raw_matrix.transpose(result_mat)
+        
         if not in_place:
-            result_mat = self.copy()
+            pass
         else:
-            result_mat = self
-        result_mat._raw_matrix = result_mat._raw_matrix.T
+            other = result_mat
         return result_mat
         #
 
     def matrix_product_matrix_transpose(self, other, in_place=True):
         """
         Right multiplication of the by a matrix-transpose.
-
+        
         Args:
             other: another StateMatrix object of the same type as this object
-
+        
         Returns:
             The product of self by the passed StateMatrix-transposed (other).
-
+        
         """
-        if not in_place:
-            result_mat = self.copy()
-        else:
-            result_mat = self
-        result_mat._raw_matrix = np.dot(result_mat._raw_matrix, other._raw_matrix.T)
+        other_T = other.transpose(in_place=False)
+        result_mat = self.matrix_product(other_T, in_place=in_place)
         return result_mat
         #
 
     def add(self, other, in_place=True):
         """
         Add a matrix.
-
+        
         Args:
             other: another StateMatrix object of the same type as this object
             in_place: If True, matrix addition is applied (in-place) to (self)
                 If False, a new copy will be returned.
-
+        
         Returns:
             The sum of self with the passed StateMatrix (other).
-
+        
         """
         if not in_place:
             result_mat = self.copy()
         else:
             result_mat = self
-        result_mat._raw_matrix = result_mat._raw_matrix + other._raw_matrix
+        result_mat._raw_matrix += other._raw_matrix
         return result_mat
         #
 
     def addAlphaI(self, alpha, in_place=True):
         """
         Add a scaled identity matrix.
-
+        
         Args:
             alpha: scalar
             in_place: If True, scaled diagonale is added (in-place) to (self)
                 If False, a new copy will be returned.
-
+        
         Returns:
             self + alpha * Identity matrix
-
+        
         """
         if not in_place:
             result_mat = self.copy()
         else:
             result_mat = self
-        # for i in xrange(result_mat._raw_matrix.shape[0]):
-        #     result_mat._raw_matrix[i,i] += alpha
-        result_mat._raw_matrix[np.diag_indices_from(result_mat._raw_matrix)] += alpha
+        vecdiag = result_mat.getDiagonal()
+        vecdiag.array[:] += alpha
+        result_mat._raw_matrix.setDiagonal(vecdiag)
         return result_mat
         #
-
+    
     def presolve(self):
         """
         Prepare for performing a linear solve (by, for example, performing an LU factorization).
-
+        
         Args:
-
+        
         Returns:
-
+        
         """
         # Do Nothing
         raise NotImplementedError
@@ -324,13 +346,24 @@ class StateMatrixNumpy(StateMatrixBase):
         Return the solution of the linear system created by the matrix and RHS vector b.
 
         Args:
-            b: a StateVectorNumpy making up the RHS of the linear system.
+            b: a StateVector_PETSCSeq making up the RHS of the linear system.
 
         Returns:
-            a StateVectorNumpy containing the solution to the linear system.
-
+            a StateVector_PETSCSeq containing the solution to the linear system.
+        
         """
-        return StateVectorNumpy(np.linalg.solve(self._raw_matrix, b._raw_vector))
+        x = b.copy()
+        
+        if self._ksp is None:
+            self._ksp = PETSc.KSP().create()
+            self._ksp.setType('cg')
+            pc = self._ksp.getPC()
+            pc.setType('none')
+            self._ksp.setOperators(self.get_raw_matrix_ref())
+            self._ksp.setFromOptions()
+        #
+        self._ksp.solve(b.get_raw_vector_ref(), x.get_raw_vector_ref())
+        return x
         #
 
     def lu_factor(self):
@@ -353,10 +386,10 @@ class StateMatrixNumpy(StateMatrixBase):
             piv : (N,) ndarray
                 Pivot indices representing the permutation matrix P:
                 row i of matrix was interchanged with row piv[i]
-
+                
         """
-        lu, piv = slinalg.lu_factor(self._raw_matrix)
-        return (lu, piv)
+        print("To be implemented...")
+        raise NotImplementedError
         #
 
     def lu_solve(self, b, lu_and_piv=None):
@@ -365,62 +398,54 @@ class StateMatrixNumpy(StateMatrixBase):
 
         Args:
             lu_and_piv: (lu, piv) the output of lu_factor
-            b: a StateVectorNumpy making up the RHS of the linear system.
+            b: a StateVector_PETSCSeq making up the RHS of the linear system.
 
         Returns:
-            a StateVectorNumpy containing the solution to the linear system.
-
+            a StateVector_PETSCSeq containing the solution to the linear system.
+        
         """
-        if lu_and_piv is None:
-            lu_and_piv = self.lu_factor()
-        else:
-            assert isinstance(lu_and_piv, tuple)
-            assert len(lu_and_piv) == 2
-            assert isinstance(lu_and_piv[0], np.ndarray)
-            assert isinstance(lu_and_piv[1], np.ndarray)
-        assert isinstance(b, StateVectorNumpy)
-
-        return StateVectorNumpy(slinalg.lu_solve(lu_and_piv, b._raw_vector))
+        print("To be implemented...")
+        raise NotImplementedError
         #
 
     def svd(self, full_matrices=False, compute_uv=False):
         """
         Return the singular value decomposition of the matrix.
-
+        
         Args:
-
+        
         Returns:
             U, s, V such that the self._raw_matrix = U s V;
             U : ndarray, shape=(M, k)
-                Unitary matrix having left singular vectors as columns.
+                Unitary matrix having left singular vectors as columns.            
             s : ndarray, shape=(k,)
                 The singular values.
             V : ndarray, shape=(k, N)
                Unitary matrix having right singular vectors as rows.Only returned when compute_uv is True.
-
+        
         """
-        U, s, V = np.linalg.svd(self._raw_matrix, full_matrices=full_matrices, compute_uv=compute_uv )
+        if True:  # TODO: will use this till we incorporate SLEPSc!
+            np_array = self._raw_matrix.getDenseArray()
+            U, s, V = np.linalg.svd(np_array, full_matrices=full_matrices, compute_uv=compute_uv )
+        else:
+            pass
         return U, s, V
         #
 
     def inverse(self, in_place=True):
         """
         Invert the matrix.
-
+        
         Args:
             in_place: If True, inverse of the matrix is carried out (in-place) to (self)
                 If False, a new copy will be returned.
-
+            
         Returns:
             Inverse of self._raw_matrix.
-
+        
         """
-        if not in_place:
-            result_mat = self.copy()
-        else:
-            result_mat = self
-        result_mat._raw_matrix = np.linalg.inv(result_mat._raw_matrix)
-        return result_mat
+        print("To be implemented...")
+        raise NotImplementedError
         #
     # add alias to inverse method
     inv = inverse
@@ -429,16 +454,28 @@ class StateMatrixNumpy(StateMatrixBase):
     def diagonal(self, k=0):
         """
         Return the matrix diagonal as numpy 1D array.
-
+        
         Args:
             k : int, optional
                 Diagonal in question. The default is 0. Use k>0 for diagonals above the main diagonal, and k<0 for diagonals below the main diagonal.
-
+        
         Returns:
             The extracted diagonal as numpy array
-
+        
         """
-        return np.diag(self._raw_matrix, k).copy()
+        assert isinstance(k, int), "k has to be an integer"
+        if k == 0:
+            return StateVector_PETSCSeq(self._raw_matrix.getDiagonal().array)
+        elif k > 0:
+            np_out = np.empty(self.shape[0]-k)
+            for i in xrange(np_out.size):
+                np_out[i] = self._raw_matrix.getValue(i, i+k)
+        else:
+            np_out = np.empty(self.shape[0]+k)
+            for i in xrange(np_out.size):
+                np_out[i] = self._raw_matrix.getValue(i-k, i)
+        #        
+        return StateVector_PETSCSeq(np_out)
         #
     # add alias to diag method
     diag = diagonal
@@ -447,16 +484,16 @@ class StateMatrixNumpy(StateMatrixBase):
     def set_diagonal(self, diagonal):
         """
         Update the matrix diagonal to the passed diagonal.
-
+        
         Args:
             diagonal: a one dimensional numpy array to set on the diagonal. It can be a scalar as well.
                 size and type must be conformable.
-
+        
         Returns:
             None
-
+            
         """
-        self._raw_matrix[np.diag_indices_from(self._raw_matrix)] = diagonal
+        self._raw_matrix.setDiagonal(diagonal.get_raw_vector_ref())
         #
     # add alias to set_diagonal method
     set_diag = set_diagonal
@@ -465,68 +502,69 @@ class StateMatrixNumpy(StateMatrixBase):
     def norm2(self):
         """
         Return the 2-norm of the matrix.
-
+        
         Args:
-
+        
         Returns:
             a scalar containing the norm of the matrix.
-
+        
         """
-        # return np.linalg.norm(self._raw_matrix, 2)
-        return np.linalg.norm(self._raw_matrix)
+        return self._raw_matrix.norm()
         #
 
     def det(self):
         """
         Returns the determinant of the matrix
-
+        
         Args:
-
+        
         Returns:
             a scalar containing the determinant of the matrix.
-
+        
         """
-        return np.linalg.det(self._raw_matrix)
+        print("To be implemented...")
+        raise NotImplementedError
         #
 
     def cond(self):
         """
         Return the condition number of the matrix.
-
+        
         Args:
-
+        
         Returns:
             a scalar containing the condition number of the matrix.
-
+        
         """
-        return np.linalg.cond(self._raw_matrix)
+        print("To be implemented...")
+        raise NotImplementedError
         #
 
     def eig(self):
         """
         Return the eigenvalues of the matrix.
-
+        
         Args:
-
+        
         Returns:
             a Numpy array of the eigenvalues of the matrix.
-
+        
         """
         return np.linalg.eigvals(self._raw_matrix)
         #
-
+        
     def schur_product(self, other, in_place=True):
         """
         Perform elementwise (Hadamard) multiplication with another state matrix.
-
+        
         Args:
             other: another StateMatrix object of the same type as this object
             in_place: If True, inverse of the matrix is carried out (in-place) to (self)
                 If False, a new copy will be returned.
-
+        
         Returns:
             The result of Hadamard prodect of self with other
-
+        
         """
         if not in_place:
             result_mat = self.copy()
@@ -539,26 +577,22 @@ class StateMatrixNumpy(StateMatrixBase):
     def cholesky(self, in_place=True):
         """
         Return a Cholesky decomposition of self._raw_matrix
-
+        
         Args:
         other: another StateMatrix object of the same type as this object
         in_place: If True, inverse of the matrix is carried out (in-place) to (self)
             If False, a new copy will be returned.
 
-        Returns:
-        Cholesky decomposition of self (or a copy of it).
-
+        Returns:        
+        Cholesky decomposition of self (or a copy of it). 
+        
         """
-        if not in_place:
-            result_mat = self.copy()
-        else:
-            result_mat = self
-        result_mat._raw_matrix = np.linalg.cholesky(result_mat._raw_matrix)
-        return result_mat
+        print("To be implemented...")
+        raise NotImplementedError
         #
-
-
-
+    
+        
+    
     #
     # Properties' Setters, and Getters:
     # ------------------------------------
@@ -577,7 +611,7 @@ class StateMatrixNumpy(StateMatrixBase):
         """
         self.__str_type = value
         #
-
+    
     @property
     def size(self):
         """
@@ -592,7 +626,7 @@ class StateMatrixNumpy(StateMatrixBase):
         """
         self.__size = value
         #
-
+    
     #
     @property
     def shape(self):
@@ -608,9 +642,9 @@ class StateMatrixNumpy(StateMatrixBase):
         """
         self.__shape = value
         #
-
-
-
+    
+    
+    
     #
     # Emulate Python Descriptors/Decorators:
     # --------------------------------------
@@ -625,8 +659,9 @@ class StateMatrixNumpy(StateMatrixBase):
         return self._raw_matrix.__iter__()
 
     def __contains__(self, item):
-        return self._raw_matrix.__contains__(item)
-
+        print("To be implemented...")
+        raise NotImplementedError
+        
     def __getitem__(self, item):
         return self._raw_matrix.__getitem__(item)
 
@@ -660,3 +695,4 @@ class StateMatrixNumpy(StateMatrixBase):
     #
     # ----------------------------------------------------------------------------------------------------- #
     #
+    

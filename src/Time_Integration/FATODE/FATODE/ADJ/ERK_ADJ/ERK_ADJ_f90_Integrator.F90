@@ -23,12 +23,31 @@ MODULE ERK_adj_f90_Integrator
   IMPLICIT NONE
   PUBLIC
   SAVE
-  
+ 
+
 !~~~>  Statistics on the work performed by the ERK method
   INTEGER, PARAMETER :: Nfun=1, Njac=2, Nstp=3, Nacc=4, Nrej=5, Ndec=6, &
                         Nsol=7, Nsng=8, Ntexit=1, Nhexit=2, Nhnew=3
-                 
+
+
 CONTAINS
+
+  SUBROUTINE GET_VERBOSITY(VERBOSE)
+
+    IMPLICIT NONE
+  
+    INTEGER :: LENGTH, STATUS
+    CHARACTER(len=10), INTENT(OUT) :: VERBOSE
+    CALL GET_ENVIRONMENT_VARIABLE('DATES_VERBOSE', VERBOSE, LENGTH, STATUS)
+
+    IF (STATUS .GE. 0) THEN
+      VERBOSE = 'F'
+    ELSE
+      VERBOSE = 'T'
+    ENDIF
+  
+  END SUBROUTINE GET_VERBOSITY
+
 
   SUBROUTINE INTEGRATE_ADJ( NVAR, NADJ, Y, Lambda, TIN, TOUT, &
            ATOL, RTOL, FUN, JAC, AdjInit,  ICNTRL_U, RCNTRL_U, ISTATUS_U, &
@@ -58,6 +77,8 @@ CONTAINS
 !~~~> Tolerances for adjoint calculations
 !     (used for full continuous adjoint, and for controlling
 !      iterations when used to solve the discrete adjoint)   
+
+
    DOUBLE PRECISION, INTENT(IN)  ::  ATOL(NVAR), RTOL(NVAR)
    DOUBLE PRECISION, INTENT(IN) :: TIN  ! Start Time
    DOUBLE PRECISION, INTENT(IN) :: TOUT ! End Time
@@ -82,7 +103,7 @@ CONTAINS
    WHERE(RCNTRL_U(:) > 0) RCNTRL(:) = RCNTRL_U(:)
          
    T1 = TIN; T2 = TOUT
-
+   
 !~~~> No quadrature term is involved. cost function = g(y)   
    CALL ERKADJ2( N=NVAR, NADJ=NADJ, Tinitial=T1, Tfinal=T2, Y=Y,   &
         Lambda=Lambda, FUN=FUN, JAC=JAC, RelTol=RTOL,            &
@@ -236,6 +257,8 @@ CONTAINS
       EXTERNAL       FUN,JAC,AdjInit
      
       DOUBLE PRECISION :: DLAMCH
+      CHARACTER(len=1) :: VERBOSE
+      CALL GET_VERBOSITY(VERBOSE)
 
       rkA = ZERO
       rkB = ZERO
@@ -392,10 +415,13 @@ CONTAINS
 !~~~>  Call forward integration    
     CALL ERK_FwdInt( N, NADJ, Tinitial, Tfinal, Y, GetQuad, Ierr )
 
-    PRINT*,'FORWARD STATISTICS'
-    PRINT*,'Step=',ISTATUS(Nstp),' Acc=',ISTATUS(Nacc),   &
-        ' Rej=',ISTATUS(Nrej), ' Singular=',Nsng,' Fun=',ISTATUS(Nfun),' Jac=',&
-        ISTATUS(Njac),' Sol=',ISTATUS(Nsol),' Dec=',ISTATUS(Ndec)
+    
+    IF (VERBOSE=='T') THEN
+      PRINT*,'FORWARD STATISTICS'
+      PRINT*,'Step=',ISTATUS(Nstp),' Acc=',ISTATUS(Nacc),   &
+          ' Rej=',ISTATUS(Nrej), ' Singular=',Nsng,' Fun=',ISTATUS(Nfun),' Jac=',&
+           ISTATUS(Njac),' Sol=',ISTATUS(Nsol),' Dec=',ISTATUS(Ndec)
+    ENDIF
 
 !~~~> Initialize adjoint variables
     CALL AdjInit(N, NADJ, Tfinal, Y, Lambda)
@@ -403,10 +429,14 @@ CONTAINS
 !~~~>  Call adjoint integration    
     CALL ERK_DadjInt( N, NADJ, Lambda, GetQuad, Ierr )
 
-    PRINT*,'ADJOINT STATISTICS'
-    PRINT*,'Step=',ISTATUS(Nstp),' Acc=',ISTATUS(Nacc),   &
-        ' Rej=',ISTATUS(Nrej), ' Singular=',Nsng,' Fun=',ISTATUS(Nfun),' Jac=',&
-        ISTATUS(Njac),' Sol=',ISTATUS(Nsol),' Dec=',ISTATUS(Ndec)
+    
+    IF (VERBOSE=='T') THEN
+      PRINT*,'ADJOINT STATISTICS'
+      PRINT*,'Step=',ISTATUS(Nstp),' Acc=',ISTATUS(Nacc),   &
+          ' Rej=',ISTATUS(Nrej), ' Singular=',Nsng,' Fun=',ISTATUS(Nfun),' Jac=',&
+          ISTATUS(Njac),' Sol=',ISTATUS(Nsol),' Dec=',ISTATUS(Ndec)
+    ENDIF
+
 !~~~>  Free memory buffers    
     CALL ERK_FreeBuffers
 

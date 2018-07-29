@@ -26,10 +26,11 @@
 """
 
 
-# 
-# 
+#
+#
 import os
 import shutil
+import dates_utility as utility
 
 wrapper_signature_suffix = 'QG_wrapper'
 wrapper_signature_filename = wrapper_signature_suffix+'.pyf'
@@ -148,3 +149,11 @@ def run_f2py_compiler_cmd():
     os.system("f2py -c --fcompiler=%s --quiet %s %s %s > %s" % (FC, wrapper_signature_filename, ' '.join(SRCFILES),
                                                           ' '.join(['-I' + inc_path for inc_path in ICDIRs]),
                                                                 tmp_outfile))
+
+
+    # cleanup dSYM directory (for Mac OS) if generated:
+    cwd = os.getcwd()
+    dirs = utility.get_list_of_subdirectories(cwd)
+    for d in dirs:
+        if 'dSYM' in d:
+            shutil.rmtree(d, ignore_errors=True)

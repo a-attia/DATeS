@@ -28,7 +28,7 @@
 #
 
 
-# 
+#
 #    A module providing utility functions.
 #    This imports all utility functions from:
 #        - _utility_file_IO
@@ -55,6 +55,8 @@ from _utility_optimization import *
 from _utility_configs import *
 from _utility_url import *
 from _utility_data_assimilation import *
+from _utility_plot import *
+from _utility_misc import *
 
 #
 # This group of methods handle files containing list to be maintained,
@@ -149,7 +151,7 @@ def read_filters_list(return_filter_full_path=True,
             - the first is a list contains filters names,
             - the second is a list of lists containing source code languages,
             - the third is a list containing filters paths, return Full path by default.
-            
+
     """
     #
     # Retrieve DATeS root directory:
@@ -358,7 +360,7 @@ def read_hybrid_schemes_list(return_hybrid_scheme_full_path=True,
             - the first is a list contains hybrid_schemes names,
             - the second is a list of lists containing source code languages,
             - the third is a list containing hybrid_schemes paths, return Full path by default.
-            
+
     """
     #
     # Retrieve DATeS root directory:
@@ -433,7 +435,7 @@ def add_model_to_models_list(new_model_name,
 
     Returns:
         None
-        
+
     """
     #
     # validate and pre-process inputs
@@ -618,7 +620,7 @@ def add_filter_to_filters_list(new_filter_name,
 
     Returns:
         None
-        
+
     """
     #
     # validate and pre-process inputs
@@ -758,7 +760,7 @@ def add_smoother_to_smoothers_list(new_smoother_name,
 
     Returns:
         None
-        
+
     """
     #
     # validate and pre-process inputs
@@ -896,7 +898,7 @@ def add_scheme_to_variational_schemes_list(new_variational_scheme_name,
 
     Returns:
         None
-        
+
     """
     #
     # validate and pre-process inputs
@@ -1035,7 +1037,7 @@ def add_scheme_to_hybrid_schemes_list(new_hybrid_scheme_name,
 
     Returns:
         None
-        
+
     """
     #
     # validate and pre-process inputs
@@ -1156,9 +1158,9 @@ def formulate_list_file_header(schemes_type, line_length=120 ):
     """
     Return a string containing the header of any of the files containing lists of (models, filters,...)
 
-    Returns: 
+    Returns:
         file_header
-        
+
     """
     #
     # Some constant strings for maintaining headers of list files....
@@ -1198,10 +1200,10 @@ def formulate_list_file_header(schemes_type, line_length=120 ):
 def prepare_model_files(model_name, working_dir_rel_path='EXPERIMENT_RUN/', subdir_name='model_src'):
     """
     Copy the necessary model files to the working directory directory.
-    
+
     Args:
         model_name: name of the model. must be in the table of models in the models list file
-    
+
     Returns:
          target_dir: full path of the model_source files directory for experiment run
 
@@ -1252,7 +1254,7 @@ def clean_executable_files(root_dir=None, rm_extensions=['.o', '.out', '.pyc', '
                         Be careful with this list after making use of Python Extensions...
     Returns:
         None
-        
+
     """
     #
     if type(rm_extensions) is str:
@@ -1285,9 +1287,9 @@ def clean_executable_files(root_dir=None, rm_extensions=['.o', '.out', '.pyc', '
 #
 def query_yes_no(message, default="yes"):
     """
-    Terminal-based query: Y/N. 
+    Terminal-based query: Y/N.
     This keeps asking until a valid yes/no is passed by user.
-    
+
     Args:
         message: a string prented on the termianl to the user.
         def_answer: the answer presumed, e.g. if the user just hits <Enter>.
@@ -1295,22 +1297,22 @@ def query_yes_no(message, default="yes"):
 
     Returns:
         The "answer" return value is True for "yes" or False for "no".
-        
+
     """
     # valid = {'yes': True, 'y': True, 'ye': True, 'yeah': True, 'yep': True, 'yup': True,
     #          'no': False, 'n': False, 'nope': False, 'nop': False}
-             
+
     valid_yes = {'yes': True, 'y': True, 'ye': True, 'yeah': True, 'yep': True, 'yup': True}
     valid_no = {'no': False, 'n': False, 'nope': False, 'nop': False}
     valid = valid_yes.copy()
     valid.update(valid_no)
-    
+
     if default is None or isinstance(default, str):
         pass
     else:
         print("How is this possible? Not 'None', and not valid string???")
         raise TypeError
-        
+
     if default is None:
         prompt = " [y/n]:? "
     elif default.lower() in valid_yes:
@@ -1330,6 +1332,3 @@ def query_yes_no(message, default="yes"):
         else:
             sys.stdout.write("Please respond with 'yes' or 'no' "
                              "(or 'y' or 'n') or at least something close such as yep, nop, etc.\n")
-                             
-                             
-                             

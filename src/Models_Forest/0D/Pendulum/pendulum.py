@@ -1,6 +1,5 @@
 #!/opt/local/bin/python
 
-raise NotImplementedError
 
 #
 # ########################################################################################## #
@@ -30,30 +29,29 @@ raise NotImplementedError
 from models_base import ModelsBase
 
 
-if False:
-    import numpy as np
-    import scipy.io as sio
-    import os
-    import re
+import numpy as np
+import scipy.io as sio
+import os
+import re
 
-    import dates_utility as utility
-    from explicit_runge_kutta import ExplicitRungeKutta as ExplicitTimeIntegrator
-    from linear_implicit_runge_kutta import LIRK as ImplicitTimeIntegrator
-    from scipy.integrate import ode as scipy_ode
+import dates_utility as utility
+from explicit_runge_kutta import ExplicitRungeKutta as ExplicitTimeIntegrator
+from linear_implicit_runge_kutta import LIRK as ImplicitTimeIntegrator
+from scipy.integrate import ode as scipy_ode
 
 
-    # adjoint integrator
-    from fatode_erk_adjoint import FatODE_ERK_ADJ as AdjointIntegrator  # This should be made more flexible...
-    from fatode_erk_adjoint import initialize_adjoint_configs
+# adjoint integrator
+from fatode_erk_adjoint import FatODE_ERK_ADJ as AdjointIntegrator  # This should be made more flexible...
+from fatode_erk_adjoint import initialize_adjoint_configs
 
-    from state_vector_numpy import StateVectorNumpy as StateVector
-    from state_matrix_numpy import StateMatrixNumpy as StateMatrix
-    from state_matrix_sp_scipy import StateMatrixSpSciPy as SparseStateMatrix
-    from observation_vector_numpy import ObservationVectorNumpy as ObservationVector
-    from observation_matrix_numpy import ObservationMatrixNumpy as ObservationMatrix
-    from observation_matrix_sp_scipy import ObservationMatrixSpSciPy as SparseObservationMatrix
-    from error_models_numpy import BackgroundErrorModelNumpy as BackgroundErrorModel
-    from error_models_numpy import ObservationErrorModelNumpy as ObservationErrorModel
+from state_vector_numpy import StateVectorNumpy as StateVector
+from state_matrix_numpy import StateMatrixNumpy as StateMatrix
+from state_matrix_sp_scipy import StateMatrixSpSciPy as SparseStateMatrix
+from observation_vector_numpy import ObservationVectorNumpy as ObservationVector
+from observation_matrix_numpy import ObservationMatrixNumpy as ObservationMatrix
+from observation_matrix_sp_scipy import ObservationMatrixSpSciPy as SparseObservationMatrix
+from error_models_numpy import BackgroundErrorModelNumpy as BackgroundErrorModel
+from error_models_numpy import ObservationErrorModelNumpy as ObservationErrorModel
 
 
 
@@ -73,7 +71,7 @@ class Pendulum(ModelsBase):
 
         self._Ref_IC = x_init
 
-    
+
     #-----------------------------------------------------------------------------------------------------------------------#
     # Set the grids' parameters:
     #       - both spatial and temporal grids are set here.
@@ -260,116 +258,5 @@ class Pendulum(ModelsBase):
 #
 if __name__ == "__main__":
     #
-    import os
-    plt.close('all')
-    os.system('clear')
-    np.random.seed(2345)
-    #
-    divider = "------------------------------------------------------------"
-    #
 
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # 1- Clean-up temporary model directory,
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    #
-    _utility.clean_model_dir('temp_model')
-    #
-    #~~~~~~~~~~~~~~~~~~~~~          ~~~~~~~~          ~~~~~~~~~~~~~~~~~~~~~
-    # prepare model configurationf file to unify procedure with HyPar models
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Model_Configs = {'ndims': 1 , 'nvars': 2 , 'size': np.array([1]) , 'n_iter':100 , 'model': 'Lorenz-3' }
-    _utility.create_original_model_configurations(Model_Configs)
-    #~~~~~~~~~~~~~~~~~~~~~          ~~~~~~~~          ~~~~~~~~~~~~~~~~~~~~~
-    # 1- Read filter and model configs from the da_solver.ini
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    daFilterConfigs = _utility.read_filter_configurations()
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # 2- Create an instance for the DensitySineWave model and build
-    #    the experiment.
-    #    Then, prepare the model: overwrite the configuration file,
-    #    setup the grids, and create necessary matrices.
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Pendulum_Model = ModelPendulum()
-    _utility.prepare_model_for_filtering(Pendulum_Model)
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # 3- Create an instance for the filter and set up the parameters.
-    #    Also, the uncertainty parameters are added to the model based
-    #    on the filter configurations.
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Filter = DAFilter(daFilterConfigs)
-    Filter.set_DA_filter(Pendulum_Model)
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # 4- Sequential data assimilation process
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Filter.DA_filtering_process(Pendulum_Model , keep_all_in_memory=True)
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # 5- Plot selective results:
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    #
-    print 'Plotting Results...\n',divider
-    da_plotter = DA_Visualization()
-    da_plotter.plot_RMSE_results(Filter_Object=Filter , read_from_files=True, log_scale=True  , show_fig = True )
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # Plot results. Reference trajectory, forecast trajectory and observations.
-    # this is specific to this model.
-    #
-    referenceTraject  =  Filter._referenceTrajectory
-    noAssimTraject    =  Filter._NOassimilationTrajectory
-    forecastTraject   =  Filter._forecastTrajectory
-    analysisMeans     =  Filter._analysisMeans
-    Observations      =  Filter._Observations
-    Fl_Timespan       =  Filter._Filter_Time_Span
-    Obs_Timespan      =  Filter._Observation_Time_Span
-
-
-    #
-    print 'Plotting Results...\n',divider
-    #
-    outfig = plt.figure(1)
-    FS = 14
-    font = {'weight' : 'bold', 'size' : FS}
-    plt.rc('font', **font)
-    plt.plot(Fl_Timespan, referenceTraject[0,:] , 'k' , linewidth=2 , label='Reference')
-    plt.plot(Fl_Timespan, referenceTraject[1,:] , 'k' , linewidth=2)
-    plt.plot(Fl_Timespan, noAssimTraject[0,:] , 'b' , linewidth=2 , label='NO Assimilation')
-    plt.plot(Fl_Timespan, noAssimTraject[1,:] , 'b' , linewidth=2)
-    plt.plot(Fl_Timespan, forecastTraject[0,:] , 'r--' , linewidth=2 , label='Forecast')
-    plt.plot(Fl_Timespan, forecastTraject[1,:] , 'r--' , linewidth=2)
-    plt.plot(Fl_Timespan, analysisMeans[0,:] , 'c--' , linewidth=2 , label='EnKF')
-    plt.plot(Fl_Timespan, analysisMeans[1,:] , 'c--' , linewidth=2)
-
-    plt.plot(Obs_Timespan, Observations[0,:] ,'g^' , label='Observations')
-    plt.plot(Obs_Timespan, Observations[1,:] ,'g^')
-
-    plt.xlabel('Time',fontsize=FS , fontweight='bold' )
-    plt.ylabel('$x_i$',fontsize=FS+10, fontweight='bold' )
-    plt.title('Pendulum model experiment')
-    plt.legend()
-    plt.draw()
-    
-    
-    plt.show()
-
-
-
-
-    print '\nDone...Terminating...\n----------------------------------------------',
-    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    _utility.clean_executables()
-    ##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
+    Pendulum_Model = Pendulum()

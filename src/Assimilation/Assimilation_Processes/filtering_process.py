@@ -45,19 +45,19 @@ class FilteringProcess(AssimilationProcess):
     """
     A class implementing the steps of a filtering process.
     This recursively apply filtering on several assimilation cycles given assimilation/observation timespan.
-    
-    Filtering process class constructor. 
+
+    Filtering process class constructor.
     The input configurarions are used to control the assimilation process behavious over several cycles.
-    
+
     Args:
         assimilation_configs (default None); a dictionary containing assimilation configurations.
         Supported configuarations:
             * filter (default None): filter object
-            * obs_checkpoints (default None): iterable containing an observation timespan 
+            * obs_checkpoints (default None): iterable containing an observation timespan
                - thsese are the time instances at which observation (synthetic or not) are given/generated
-            * da_checkpoints (default None): : iterable containing an assimilation timespan 
+            * da_checkpoints (default None): : iterable containing an assimilation timespan
                - thsese are the time instances at which filtering is carried out
-               - If same as obs_checkpoints, assimilation is synchronous. 
+               - If same as obs_checkpoints, assimilation is synchronous.
             * da_time_spacing (default None): Type of spacing between consecutive assimilation cycles.
                - Used (along with (num_filtering_cycles) if both obs_checkpoints, da_checkpoints are None.
             * num_filtering_cycles (default None): Used with 'da_time_spacing'only
@@ -68,9 +68,9 @@ class FilteringProcess(AssimilationProcess):
             * random_seed (default None): An integer to reset the random seed of Numpy.random
               - resets the seed of random number generator before carrying out any filtering steps.
             * callback (default None): A function to call after each assimilation (filtering) cycle)
-            * callback_args (default None): arguments to pass to the callback function.  
-              
-    
+            * callback_args (default None): arguments to pass to the callback function.
+
+
         output_configs (default None); a dictionary containing screen/file output configurations:
         Supported configuarations:
             * scr_output (default True): Output results to screen on/off switch
@@ -79,10 +79,10 @@ class FilteringProcess(AssimilationProcess):
             * file_output_iter (default 1): number of iterations/windows after which outputs are saved to files
             * file_output_dir (default None): defaul directory in which results are written to files
             * file_output_variables: which data structures to try to save to files
-            
+
     Returns:
         None
-    
+
     """
     # Default filtering process configurations
     _def_assimilation_configs = dict(filter=None,
@@ -111,7 +111,7 @@ class FilteringProcess(AssimilationProcess):
                                )
 
     def __init__(self, assimilation_configs=None, output_configs=None):
-        
+
         self.assimilation_configs = self.validate_assimilation_configs(assimilation_configs,
                                                                        FilteringProcess._def_assimilation_configs)
         # extract assimilation configurations for easier access
@@ -126,7 +126,6 @@ class FilteringProcess(AssimilationProcess):
         self.ref_initial_time = self.assimilation_configs['ref_initial_time']
         self.ref_initial_condition = self.assimilation_configs['ref_initial_condition']
         self.forecast_first = self.assimilation_configs['forecast_first']
-        self.random_seed = self.assimilation_configs['random_seed']
         #
         self._callback = self.assimilation_configs['callback']
         self._callback_args = self.assimilation_configs['callback_args']
@@ -140,6 +139,8 @@ class FilteringProcess(AssimilationProcess):
         self.file_output_dir = self.output_configs['file_output_dir']
         self.file_output_variables = self.output_configs['file_output_variables']
 
+        self.random_seed = self.assimilation_configs['random_seed']
+
         # Make sure the directory is created and cleaned up at this point...
         self.set_filtering_output_dir(self.file_output_dir, rel_to_root_dir=True)
         #
@@ -147,29 +148,29 @@ class FilteringProcess(AssimilationProcess):
     #
     def recursive_assimilation_process(self, observations_list=None, obs_checkpoints=None, da_checkpoints=None, update_ref_here=False):
         """
-        Loop over all assimilation cycles and output/save results (forecast, analysis, observations) 
+        Loop over all assimilation cycles and output/save results (forecast, analysis, observations)
         for all the assimilation cycles.
-        
+
         Args:
             observations_list (default None): list of obs.observation_vector objects,
                 A list containing observaiton vectors at specific obs_checkpoints to use for sequential filtering
                 If not None, len(observations_list) must be equal to len(obs_checkpoints).
                 If it is None, synthetic observations should be created sequentially
-                
-            obs_checkpoints (default None): iterable containing an observation timespan 
+
+            obs_checkpoints (default None): iterable containing an observation timespan
                 Thsese are the time instances at which observation (synthetic or not) are given/generated
-            
-            da_checkpoints (default None): iterable containing an assimilation timespan 
+
+            da_checkpoints (default None): iterable containing an assimilation timespan
                 Thsese are the time instances at which filtering is carried out.
                 If same as obs_checkpoints, assimilation is synchronous.
-                
+
             update_ref_here (default False): bool,
-                A flag to decide to whether to update the reference state here, 
+                A flag to decide to whether to update the reference state here,
                 or request to updated it inside the filter.
-                  
+
         Returns:
             None
-        
+
         """
         if observations_list is not None and obs_checkpoints is not None:
             # override process configurations and use given obs_checkpoints and observations list.
@@ -207,8 +208,6 @@ class FilteringProcess(AssimilationProcess):
             raise ValueError("first da_checkpoint is less than the reference initial time!")
         obs_checkpoints = self.obs_checkpoints
 
-        if self.random_seed is not None:
-                np.random.seed(self.random_seed)
 
         # TODO: save/output initial results based on scr_output and file_output flags
         #
@@ -218,7 +217,14 @@ class FilteringProcess(AssimilationProcess):
             callback_output = dict()
         else:
             callback_output = None
-                
+
+        # Random-State: to guarantee same sequence of observations, if Numpy is used to generte random numbers.
+        if self.random_seed is not None:
+            self._random_state = np.random.get_state()
+            np.random.seed(self.random_seed)
+        else:
+            self._random_state = None
+
         # Loop over each two consecutive da_points to create cycle limits
         for time_ind in xrange(len(da_checkpoints)-1):
             #
@@ -241,6 +247,13 @@ class FilteringProcess(AssimilationProcess):
                 observation_time = local_obs_checkpoints[0]
 
             if create_synthetic_observations:
+
+                if self._random_state is not  None:
+                    np_state = np.random.get_state()
+                    np.random.set_state(self._random_state)
+                else:
+                    np_state = None
+
                 reference_traject = self.model.integrate_state(initial_state=reference_state,
                                                                checkpoints=local_obs_checkpoints
                                                                )
@@ -250,12 +263,16 @@ class FilteringProcess(AssimilationProcess):
                 else:
                     # print('REFERENC STATE:', reference_traject)
                     observation = self.model.evaluate_theoretical_observation(reference_traject)
-                
-                # print('Theoritical REFERENCE Observation', observation)                
+
+                # print('Theoritical REFERENCE Observation', observation)
                 observation = observation.add(self.model.observation_error_model.generate_noise_vec())
                 # print('SCALED Observation', observation)
-                
-                
+
+                if np_state is not  None:
+                    self._random_state = np.random.get_state()
+                    np.random.set_state(np_state)
+
+
             else:
                 if ignore_first_obs:
                     observation = observations_list[time_ind+1]
@@ -290,6 +307,7 @@ class FilteringProcess(AssimilationProcess):
                                     file_output=file_output,
                                     update_reference=not update_ref_here
                                     )
+
             if update_ref_here:
                 reference_state = self.filter.filter_configs['reference_state'].copy()
                 tmp_traject = self.model.integrate_state(initial_state=reference_state,
@@ -306,10 +324,10 @@ class FilteringProcess(AssimilationProcess):
                 self.model.update_observation_operator()
             except (NotImplementedError):
                 print("Model does not support updating the observation oprator or the observational grid.")
-                
+
             # save/output initial results based on scr_output and file_output flags
             pass
-            
+
             # Call the callback function if provided:
             if self._callback is not None:
                 _cout = self._callback(self._callback_args)
@@ -333,43 +351,43 @@ class FilteringProcess(AssimilationProcess):
         Carry out filtering for the next assimilation cycle.
         Given the assimilation cycle is carried out by applying filtering using filter_object.filtering_cycle().
         filter_object.filtering_cycle() itself should carry out the two steps: forecast, analysis.
-        This function modifies the configurations dictionary of the filter object to carry out a single 
+        This function modifies the configurations dictionary of the filter object to carry out a single
         filtering cycle.
-        
+
         Args:
             analysis_time: scalar,
                 The time instance at which analysis step of the filter is carried out
-                
+
             forecast_time: scalar,
                 The time instance at which forecast step of the filter is carried out
-            
+
             observation_time: scalar,
                 The time instance at which observation is available
-            
-            assimilation_timespan: an iterable containing the beginning and the end of the assimilation cycle i.e. len=2 
+
+            assimilation_timespan: an iterable containing the beginning and the end of the assimilation cycle i.e. len=2
                 A timespan for the filtering process on the current assimilation cycle.
                 - analysis_time, obs_time, and forecast_time all must be within in that timespan limits
                 - The reference_state is always given at the beginning of the current timespan and
                   updated here or inside the filter cycle while calculating RMSE.
-              
-              
+
+
             observation: model.observation_vector object,
                 The observaiton vector to use for assimilation/filtering
-                
+
             scr_output (default False): bool,
                 A boolean flag to cotrol whether to output results to the screen or not
                 The per-cycle screen output options are set by the filter configs.
-                
+
             file_output (default False): bool,
-                A boolean flag to cotrol whether to save results to file or not. 
+                A boolean flag to cotrol whether to save results to file or not.
                 The per-cycle file output options are set by the filter configs.
-                
+
             update_reference (default False): bool,
                 A flag to decide to whether to request updating the reference state in by the filter.
-                                       
+
         Returns:
             None
-            
+
         """
         # get and update the configurations of the filter. Both output and filter configs are handled here
         # Update filter configs
@@ -396,19 +414,19 @@ class FilteringProcess(AssimilationProcess):
         """
         Aggregate the passed dictionaries with default configurations then make sure parameters are consistent.
         The first argument (assimilation_configs) is validated, updated with missing entries, and returned.
-        
+
         Args:
             assimilation_configs: dict,
-                A dictionary containing assimilation configurations. This should be the assimilation_configs dict 
+                A dictionary containing assimilation configurations. This should be the assimilation_configs dict
                 passed to the constructor.
-                
+
             def_assimilation_configs: dict,
-                A dictionary containing the default assimilation configurations. 
+                A dictionary containing the default assimilation configurations.
 
         Returns:
             assimilation_configs: dict,
                 Same as the first argument (assimilation_configs) but validated, adn updated with missing entries.
-            
+
         """
         assimilation_configs = utility.aggregate_configurations(assimilation_configs, def_assimilation_configs)
         # Since aggregate never cares about the contents, we need to make sure now all parameters are consistent
@@ -422,7 +440,7 @@ class FilteringProcess(AssimilationProcess):
             if not isinstance(assimilation_configs['filter'], FiltersBase):
                 raise ValueError("Passed filter is not an instance of 'FiltersBase'!. Passed: %s" %
                                  repr(assimilation_configs['filter']))
-        
+
         try:
             model = assimilation_configs['filter'].filter_configs['model']
         except(AttributeError, KeyError, NameError):
@@ -533,19 +551,19 @@ class FilteringProcess(AssimilationProcess):
         """
         Aggregate the passed dictionaries with default configurations then make sure parameters are consistent.
         The first argument (output_configs) is validated, updated with missing entries, and returned.
-        
+
         Args:
             output_configs: dict,
-                A dictionary containing output configurations. This should be the output_configs dict 
+                A dictionary containing output configurations. This should be the output_configs dict
                 passed to the constructor.
-                
+
             def_output_configs: dict,
-                A dictionary containing the default output configurations. 
+                A dictionary containing the default output configurations.
 
         Returns:
             output_configs: dict,
                 Same as the first argument (output_configs) but validated, adn updated with missing entries.
-                
+
         """
         output_configs = utility.aggregate_configurations(output_configs, def_output_configs)
         # screen output
@@ -596,8 +614,8 @@ class FilteringProcess(AssimilationProcess):
     #
     def set_filtering_output_dir(self, file_output_dir, rel_to_root_dir=True, backup_existing=True):
         """
-        Set the output directory of filtering results. 
-        
+        Set the output directory of filtering results.
+
         Args:
             file_output_dir_path: path/directory to save results under
             rel_to_root_dir (default True): the path in 'output_dir_path' is relative to DATeS root dir or absolute
@@ -605,7 +623,7 @@ class FilteringProcess(AssimilationProcess):
 
         Returns:
             None
-            
+
         """
         # Make sure the directory is created and cleaned up at this point...
         if self.file_output:
@@ -614,7 +632,7 @@ class FilteringProcess(AssimilationProcess):
             if rel_to_root_dir:
                 file_output_dir = os.path.join(dates_root_path, file_output_dir)
             #
-            parent_path, out_dir = os.path.split(file_output_dir)                        
+            parent_path, out_dir = os.path.split(file_output_dir)
             utility.cleanup_directory(directory_name=out_dir, parent_path=parent_path, backup_existing=True)
             # Override output configurations of the filter:
             self.file_output_dir = file_output_dir
@@ -626,5 +644,3 @@ class FilteringProcess(AssimilationProcess):
         self.filter.output_configs['file_output'] = self.file_output
         self.filter.output_configs['file_output_dir'] = file_output_dir
         #
-
-

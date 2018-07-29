@@ -27,7 +27,7 @@
         Define necessary global variables needed for access by DATeS modules, and scripts.
         These variables are defined as environment variables.
             1- DATES_ROOT_PATH: Full path of the root directory of the DATeS package,
-            2- DATES_TIME_EPS: time precesion; used to compare time instances t0, t1; 
+            2- DATES_TIME_EPS: time precesion; used to compare time instances t0, t1;
                 e.g. if abs(t0-t1)<=DATES_TIME_EPS, then t0==t1
 """
 
@@ -63,4 +63,5 @@ else:
 # 2- time precision; used to compare time instances t0, t1; e.g. if abs(t0-t1)<=DATES_TIME_EPS, then t0==t1
 DATES_TIME_EPS = 1e-7
 
-
+# 3- general verbosity; this will be overridden when explicityly passed to a python module
+DATES_VERBOSE = 'FALSE'

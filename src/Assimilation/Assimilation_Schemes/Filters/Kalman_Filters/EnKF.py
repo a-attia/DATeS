@@ -40,14 +40,14 @@
     --------
         - The Prior:
             The prior distribution is assumed by default to be Gaussian which statistics are approximated based on the forecast ensemble.
-            Here we add the option to use other models (such as Gaussian Mixture Models) to approximate the prior distribution.                                                
-            This can be used for example to GMM + EnKF schemes such as Cluster EnKF.           
+            Here we add the option to use other models (such as Gaussian Mixture Models) to approximate the prior distribution.
+            This can be used for example to GMM + EnKF schemes such as Cluster EnKF.
 
         - Localization:
             Two localization methods are implemented following the enkf-matlab implementations.
             The localization method is switched/controlled via the option "" in the filter configurations dictionary.
             The two localization methods are:
-                + 'covariance_localization': involves modification of the update equations by replacing the state error covariance 
+                + 'covariance_localization': involves modification of the update equations by replacing the state error covariance
                   by its element-wise product with some distance-dependent correlation matrix (Houtekamer and Mitchell, 2001; Hamill and Whitaker, 2001).
                 + 'local_analysis': uses a local approximation of the forecast covariance for updating a state vector element,
                   calculated by building a local window around this element (Evensen, 2003; Anderson, 2003; Ott et al., 2004).
@@ -56,14 +56,14 @@
             For example, 'covariance_localization' can not be used with the ETKF.
 
     References
-    ------------                                                                       
-    - Anderson, J. L. 2001. A local least squares framework for ensemble filtering. Mon. Wea. Rev. 131, 634-642.                                                                                 
-    - Evensen, G. 2003. The ensemble Kalman filter: theoretical formulation and practical implementation. Ocean Dynamics 53, 343-367.                              
+    ------------
+    - Anderson, J. L. 2001. A local least squares framework for ensemble filtering. Mon. Wea. Rev. 131, 634-642.
+    - Evensen, G. 2003. The ensemble Kalman filter: theoretical formulation and practical implementation. Ocean Dynamics 53, 343-367.
     - Hamill, T. M. and Whitaker, J. S. 2001. Distance-dependent filtering of background error covariance estimates in an ensemble Kalman filter. Mon. Wea. Rev. 129, 2776-2790.
     - Houtekamer, P. L. and Mitchell, H. L. 2001. A Sequential Ensemble Kalman Filter for Atmospheric Data Assimilation. Mon. Wea. Rev. 129, 123-137.
     - Hunt, B. R., Kostelich, E. J. and Szunyogh, I. 2007. Efficient data assimilation for spatiotemporal chaos: A local ensemble transform Kalman filter. Physica D 230, 112-126.
-    - Sakov, P. and Bertino, L. 2010. Relation between two common localisation methods for the EnKF. Comput. Geosci (in press).                                   
-                                                                                       
+    - Sakov, P. and Bertino, L. 2010. Relation between two common localisation methods for the EnKF. Comput. Geosci (in press).
+
 """
 
 
@@ -93,7 +93,7 @@ class EnKF(FiltersBase):
                 * model (default None):  model object
                 * filter_name (default None): string containing name of the filter; used for output.
                 * hybrid_background_coeff (default 0.0): used when hybrid background errors are used,
-                    this multiplies the modeled Background error covariance matrix. 
+                    this multiplies the modeled Background error covariance matrix.
                     Will be effective only if the covariance localization is done in full space, otherwise it is meaningless.
                 * inflation_factor (default 1.09): covariance inflation factor
                 * obs_covariance_scaling_factor (default 1): observation covariance scaling factor (rfactor2 in Sakov's Code)
@@ -104,10 +104,10 @@ class EnKF(FiltersBase):
                     This is likely to be updated in future releases to be carried out here with more options.
                 * localization_method: method used to carry out filter localization to remove sporious correlations.
                   Three localization methods are supported:
-                     - 'covariance_filtering': involves modification of the update equations by replacing 
-                        the state error covariance by its element-wise product with some distance-dependent 
+                     - 'covariance_filtering': involves modification of the update equations by replacing
+                        the state error covariance by its element-wise product with some distance-dependent
                         correlation matrix. This is done by localizing covariances projected in the observation space.
-                     -  'local_analysis': uses a local approximation of the forecast covariance for updating 
+                     -  'local_analysis': uses a local approximation of the forecast covariance for updating
                         a state vector element, calculated by building a local window around this element.
                 * localization_radius (default np.infty): radius of influence of covariance decorrelation
                 * localization_function ('gaspari-cohn'): the covariance localization function
@@ -145,16 +145,16 @@ class EnKF(FiltersBase):
                 * forecast_state (default None): model.state_vector object containing the forecast state.
                 * filter_statistics: dict,
                     A dictionary containing updatable filter statistics. This will be updated by the filter.
-                
+
         output_configs: dict,
             A dictionary containing screen/file output configurations.
             Supported configuarations:
             --------------------------
                 * scr_output (default False): Output results to screen on/off switch
                 * file_output (default True): Save results to file on/off switch
-                * file_output_dir (default 'Assimilation_Results'): relative path (to DATeS root directory) 
+                * file_output_dir (default 'Assimilation_Results'): relative path (to DATeS root directory)
                     of the directory to output results in
-                
+
                 * filter_statistics_dir (default 'Filter_Statistics'): directory where filter statistics (such as RMSE, ESS,...) are saved
                 * model_states_dir (default 'Model_States_Repository'): directory where model-states-like objects (including ensemble) are saved
                 * observations_dir (default 'Observations_Rpository'): directory where observations and observations operators are saved
@@ -168,18 +168,17 @@ class EnKF(FiltersBase):
                         - 'pickle': python pickled objects,
                         - 'txt' or 'ascii': text files
                 * file_output_separate_files (default True): save all results to a single or multiple files
-                
+
     Returns:
         None
-    
+
     """
     #
-    _filter_name = "EnKF"
-    #
     _def_local_filter_configs = dict(model=None,
-                                     filter_name=_filter_name,
+                                     filter_name="EnKF",
                                      hybrid_background_coeff=0.0,
-                                     inflation_factor=1.09,
+                                     forecast_inflation_factor=1.0,  # applied to forecast ensemble
+                                     inflation_factor=1.09,  # applied to analysis ensemble
                                      obs_covariance_scaling_factor=1.0,
                                      obs_adaptive_prescreening_factor=None,
                                      localize_covariances=True,
@@ -225,9 +224,9 @@ class EnKF(FiltersBase):
     _supported_prior_distribution = ['gaussian', 'normal', 'gmm', 'gaussian-mixture', 'gaussian_mixture']
     #
 
-    # 
+    #
     def __init__(self, filter_configs=None, output_configs=None):
-        
+
         # aggregate configurations, and attach filter_configs, output_configs to the filter object.
         filter_configs = utility.aggregate_configurations(filter_configs, EnKF._def_local_filter_configs)
         output_configs = utility.aggregate_configurations(output_configs, EnKF._local_def_output_configs)
@@ -239,11 +238,11 @@ class EnKF(FiltersBase):
         else:
             # old-stype class
             super(EnKF, self).__init__(filter_configs=filter_configs, output_configs=output_configs)
-        
+
         #
         self.model = self.filter_configs['model']
         #
-        # the following configuration are filter-specific.        
+        # the following configuration are filter-specific.
         # validate the ensemble size
         if self.filter_configs['ensemble_size'] is None:
             try:
@@ -259,10 +258,10 @@ class EnKF(FiltersBase):
             #
         else:
             self.sample_size = self.filter_configs['ensemble_size']
-        
+
         # retrieve the observation vector size from model:
         self.observation_size = self.model.observation_vector_size()
-        
+
         if self.filter_configs['localize_covariances']:
             loc_radius = self.filter_configs['localization_radius']
             try:
@@ -275,7 +274,7 @@ class EnKF(FiltersBase):
             finally:
                 if loc_radius is None:
                     self.filter_configs['localize_covariances'] = False
-        
+
         #
         # Generate prior-distribution information:
         self.prior_distribution = self.filter_configs['prior_distribution'].lower()
@@ -287,7 +286,7 @@ class EnKF(FiltersBase):
                 self.forecast_state = utility.ensemble_mean(forecast_ensemble)
             else:
                 self.forecast_state = None
-        
+
         elif self.prior_distribution in ['gmm', 'gaussian_mixture', 'gaussian-mixture']:
             # Generate GMM parameters... May be it is better to move this to a method to generate prior info.
             # It might be needed in the forecast step in case FORECAST is carried out first, and forecast ensemble is empty!
@@ -296,7 +295,7 @@ class EnKF(FiltersBase):
             if 'filter_statistics' not in self.output_configs:
                 # Add filter statistics to the output configuration dictionary for proper outputting.
                 self.output_configs.update(dict(filter_statistics=dict(gmm_prior_statistics=None)))
-            
+
             # Generate the forecast state only for forecast RMSE evaluation. It won't be needed by the GMM+HMC sampler
             forecast_ensemble = self.filter_configs['forecast_ensemble']
             if forecast_ensemble is not None:
@@ -321,14 +320,14 @@ class EnKF(FiltersBase):
         """
         Carry out a single filtering cycle. Forecast followed by analysis or the other way around.
         All required variables are obtained from 'filter_configs' dictionary.
-        
+
         Args:
             update_reference (default True): bool,
                 A flag to decide whether to update the reference state in the filter or not.
-                      
+
         Returns:
             None
-           
+
         """
         # Call basic functionality from the parent class:
         class OldStyle: pass
@@ -340,24 +339,28 @@ class EnKF(FiltersBase):
             super(EnKF, self).filtering_cycle(update_reference=update_reference)
         #
         # Add further functionality if you wish...
+        # reference_state = self.filter_configs['reference_state']
+        # xf = self.filter_configs['forecast_state']
+        # f_rmse = utility.calculate_rmse(reference_state, xf)
+        # print("XXX, forecast state: ", f_rmse)
         #
-    
+
     #
     def forecast(self):
         """
-        Forecast step of the filter. 
-        Use the model object to propagate each ensemble member to the end of the given checkpoints to 
-        produce and ensemble of forecasts. 
+        Forecast step of the filter.
+        Use the model object to propagate each ensemble member to the end of the given checkpoints to
+        produce and ensemble of forecasts.
         Filter configurations dictionary is updated with the new results.
         If the prior is assumed to be a Gaussian, we are all set, otherwise we have to estimate it's
         parameters based on the provided forecast ensemble (e.g. in the case of 'prior_distribution' = GMM ).
-        
+
         Args:
             None
-                  
+
         Returns:
             None
-        
+
         """
         # generate the forecast states
         analysis_ensemble = self.filter_configs['analysis_ensemble']
@@ -375,22 +378,22 @@ class EnKF(FiltersBase):
         # Covariance localization and hybridization are carried out if requested
         self.generate_prior_info()
         #
-    
+
     #
     def generate_prior_info(self):
         """
         Generate the statistics of the approximation of the prior distribution.
-            - if the prior is Gaussian, the covariance (ensemble/hybrid) matrix is generated and 
+            - if the prior is Gaussian, the covariance (ensemble/hybrid) matrix is generated and
               optionally localized.
-            - if the prior is GMM, the parameters of the GMM (weights, means, covariances) are generated 
-              based on the gmm_prior_settings. 
-        
+            - if the prior is GMM, the parameters of the GMM (weights, means, covariances) are generated
+              based on the gmm_prior_settings.
+
         Args:
             None
-                  
+
         Returns:
             None
-        
+
         """
         #
         # Read the forecast ensemble...
@@ -399,17 +402,17 @@ class EnKF(FiltersBase):
         if self.filter_configs['prior_distribution'].lower() in ['gaussian', 'normal']:
             #
             # Localization is now moved to the analysis step
-                
+
             # Evaluate the ensemble variances of the ensemble
             self.prior_variances = utility.ensemble_variances(self.filter_configs['forecast_ensemble'])
-            
+
             #
             try:
                 self.prior_distribution_statistics
             except (NameError, AttributeError):
                 self.prior_distribution_statistics = dict()
             #
-            
+
         # Construct a Gaussian Mixture Model (GMM) representation/approximation of the prior distribution:
         elif self.filter_configs['prior_distribution'].lower() in ['gmm', 'gaussian_mixture', 'gaussian-mixture']:
             #
@@ -600,7 +603,7 @@ class EnKF(FiltersBase):
                                 # localization radius seems legit; apply covariance localization now
                                 try:
                                     covariances_matrix = self.model.apply_state_covariance_localization(covariances_matrix,
-                                                                                                         localization_function=loc_func, 
+                                                                                                         localization_function=loc_func,
                                                                                                          localization_radius=loc_radius
                                                                                                          )
                                 except(TypeError):
@@ -664,7 +667,7 @@ class EnKF(FiltersBase):
                         #
                         precisions_matrix = self.model.state_matrix()
                         precisions_matrix[:, :] = gmm_precisions[:, :]
-                        
+
                         if gmm_prior_settings['localize_covariances']:
                             # Apply localization on the full background error covariance matrix.
                             # quite clear this is really a bad idea!
@@ -676,7 +679,7 @@ class EnKF(FiltersBase):
                                 # localization radius seems legit; apply covariance localization now
                                 try:
                                     precisions_matrix = self.model.apply_state_covariance_localization(precisions_matrix.inv(),
-                                                                                                        localization_function=loc_func, 
+                                                                                                        localization_function=loc_func,
                                                                                                         localization_radius=loc_radius
                                                                                                          ).inv()  # quite clear this is bad
                                 except(TypeError):
@@ -687,7 +690,7 @@ class EnKF(FiltersBase):
                                     # Try the localization with default settings in the model
                                     precisions_matrix = self.model.apply_state_covariance_localization(precisions_matrix.inv()).inv()
                             #
-                            
+
                         self.prior_distribution_statistics['gmm_precisions'] = precisions_matrix
 
                         # calculate covariance_det_log if necessary
@@ -872,643 +875,590 @@ class EnKF(FiltersBase):
             print("Prior distribution [%s] is not yet supported!" % self.filter_configs['prior_distribution'])
             raise ValueError()
         #
-            
+
     #
     def analysis(self, all_to_numpy=True):
         """
         Analysis step:
-        
+
         Args:
             all_to_numpy (default False): bool,
                 convert all data structures to Numpy and re-place results into target structures only in the end.
-            
+
         Returns:
             None. Only self.filter_configs is updated.
-            
+
         """
         #
+        model = self.model
+        state_size = model.state_size()
+        observation_size = model.observation_vector_size()
+        #
+        # get the forecast state as the mean of the forecast ensemble. Will not be used for GMM!
+
+        # Check if the forecast ensemble should be inflated;
+        f = self.filter_configs['forecast_inflation_factor']
+        forecast_ensemble = utility.inflate_ensemble(self.filter_configs['forecast_ensemble'], f, in_place=False)
+        forecast_state = utility.ensemble_mean(forecast_ensemble)
+        ensemble_size = len(forecast_ensemble)
+
+        # get the measurements vector
+        observation = self.filter_configs['observation']
+
+        #
         if all_to_numpy:
-            # get the forecast state as the mean of the forecast ensemble. Will not be used for GMM!
-            state_size = self.model.state_size()
-            try:
-                observation_size = self.observation_size
-            except(NameError, AttributeError):
-                observation_size = self.model.observation_vector_size()
-                #
-            forecast_ensemble = self.filter_configs['forecast_ensemble']
-            forecast_state = utility.ensemble_mean(forecast_ensemble)
-            ensemble_size = self.sample_size
-            
+
+            #
+            # Xf = np.empty((state_size, ensemble_size))  # forecast ensemble
+            # for ens_ind in xrange(ensemble_size):
+            #     Xf[:, ens_ind] = forecast_ensemble[ens_ind].get_numpy_array()
+            Xf = utility.ensemble_to_np_array(forecast_ensemble, state_as_col=True, model=model)
+            # del forecast_ensemble
+
             # observation error covariance matrix
-            R = self.model.observation_error_model.R.get_numpy_array()
+            R = model.observation_error_model.R.get_numpy_array()
             try:
-                sqrtR = self.model.observation_error_model.sqrtR.get_numpy_array()
+                sqrtR = model.observation_error_model.sqrtR.get_numpy_array()
             except (AttributeError, NameError, ValueError):
                 sqrtR = np.linalg.cholesky(R)
-            #
-            forecast_ensemble_np = np.empty((state_size, ensemble_size))
+            # del R
+
+            # # get the current state of the random number generator
+            # current_random_state = np.random.get_state()
+
+            # Random observation noise:
+            U = np.random.randn(observation_size, ensemble_size)
+
+            # # Restore the state of the gaussian random number generator:
+            # np.random.set_state(current_random_state)
+
+            y = observation.get_numpy_array()
+            Y = np.empty((observation_size, ensemble_size))
+            # model observation:
             for ens_ind in xrange(ensemble_size):
-                # forecast_ensemble[:, ens_ind] = forecast_ensemble[ens_ind][:]
-                forecast_ensemble_np[:, ens_ind] = forecast_ensemble[ens_ind].get_numpy_array()
-            forecast_state_np = np.mean(forecast_ensemble_np, 1)
-            
-            # get the measurements vector
-            observation = self.filter_configs['observation'].get_numpy_array()
-            
-            #
-            # PREPARE for ASSIMILATION:
-            # ---------------------------
-            
-            # Model-observation of the forecast ensemble members:
-            HE = np.empty((observation_size, ensemble_size))
+                Y[:, ens_ind] = y + U[:, ens_ind]
+
+            # model observations:
+            Yf = np.empty((observation_size, ensemble_size))
             for ens_ind in xrange(ensemble_size):
-                HE[:, ens_ind] = self.model.evaluate_theoretical_observation(forecast_ensemble[ens_ind]).get_numpy_array()
-            # Mean of forecasted observations:
-            Hx = np.mean(HE, 1)
-            
-            # Observation innovations:
-            # obs_innovations = observation - Hx
-            obs_innovations = observation - self.model.evaluate_theoretical_observation(forecast_state).get_numpy_array()
-            
-            # Forecast Ensemble Anomalies matrix [forecast ensemble members - ensemble mean]
-            A = forecast_ensemble_np
+                Yf[:, ens_ind] = model.evaluate_theoretical_observation(forecast_ensemble[ens_ind]).get_numpy_array()
+            Hx = Yf.copy()
+
+            # get means:
+            xf_b = np.mean(Xf, 1)  # forecast ensemble mean
+            u_b  = np.mean(U,  1)  # observation noise mean
+            yf_b = np.mean(Yf, 1)  # model observation mean
+
+            # normalized anomalies:
             for ens_ind in xrange(ensemble_size):
-                A[:, ens_ind] -= forecast_state_np
-            
-            # Forecast Ensemble Observations Anomalies matrix [HE(e) - Hx], e = 1,2,..., ensemble_size
-            HA = HE  # reuse --> in-place
-            for ens_ind in xrange(ensemble_size):
-                HA[:, ens_ind] -= Hx
-            
-            #
-            # START ASSIMILATION:
-            # ---------------------------
-            
-            # standardised innovation and ensemble anomalies 
-            # sqrtR_lu, sqrtR_piv = lu_factor( sqrtR )
-            # s = obs_innovations / np.sqrt(ensemble_size-1)
-            # s = lu_solve((sqrtR_lu, sqrtR_piv) , s)
-            # S = np.empty_like(HA)
-            # for ens_ind in xrange(ensemble_size):
-            #     S[:, ens_ind] = (lu_solve((sqrtR_lu, sqrtR_piv) , HA[:, ens_ind])) / np.sqrt(ensemble_size-1)
-            
-            sqrtR_inv = np.linalg.inv( sqrtR )
-            s = sqrtR_inv.dot(obs_innovations) / np.sqrt(ensemble_size-1)
-            S = sqrtR_inv.dot(HA) / np.sqrt(ensemble_size-1)
-                        
-            # get the current state of the random number generator
-            current_random_state = np.random.get_state()
-            
-            # observation covariance scaling factor
-            rfactor = float(self.filter_configs['obs_covariance_scaling_factor'])
-            
-            # Generate the random observations (global perturbations of observations for the EnKF)
-            D = np.random.randn(observation_size, ensemble_size)
-            D *= 1.0/(rfactor * np.sqrt(ensemble_size-1.0))
-            d = np.mean(D, 1)
-            for ens_ind in xrange(ensemble_size):
-                D[:, ens_ind] -= d
-            D *= np.sqrt(ensemble_size / (ensemble_size-1.0))
-            # Restore the state of the gaussian random number generator:
-            np.random.set_state(current_random_state)
-            
-            # Analysis is carried out based on the tpe of localization in what follows:
+                Xf[:, ens_ind] -= xf_b
+                Yf[:, ens_ind] -= (yf_b + U[:, ens_ind] - u_b)
+            Xf *= 1.0/np.sqrt(ensemble_size-1)
+            Yf *= 1.0/np.sqrt(ensemble_size-1)
+            del U, u_b
+
+            # Compute and (optionally) localize the gain matrix
+            Pb = np.dot(Xf, Xf.T)
+
             #
             localize_covariances = self.filter_configs['localize_covariances']
-            if not localize_covariances:
-                # Global analysis (No Localization):
-                if ensemble_size <= observation_size:
-                    # Calculte G = (I + (S^T * S))^{-1} * S^T
-                    G = np.dot(np.transpose(S), S)
-                    G[np.diag_indices_from(G)] += 1.0
-                    G = np.dot(np.linalg.inv(G), np.transpose(S))
-                else:
-                    # Calculte G = S^T * (I + S * S^T)^{-1}
-                    G = np.dot(S, np.transpose(S))
-                    G[np.diag_indices_from(G)] += 1.0
-                    G = np.dot(S.T, np.linalg.inv(G))
-                
-                # Evaluate the Ensemble-Mean update:
-                ens_mean_update = np.dot(np.dot(A, G), s)  # dx
-                
-                # Evaluate Ensemble-Anomalies update:
-                if rfactor != 1.0:
-                    # rescale S, and G
-                    S *= 1.0 / np.sqrt(rfactor)
-                    if ensemble_size <= observation_size:
-                        # RE-Calculte G = (I + (S^T * S))^{-1} * S^T
-                        G = np.dot(np.transpose(S), S)
-                        G[np.diag_indices_from(G)] += 1.0
-                        G = np.dot(np.linalg.inv(G), np.transpose(S))
-                    else:
-                        # RE-Calculte G = S^T * (I + S * S^T)^{-1}
-                        G = np.dot(S, np.transpose(S))
-                        G[np.diag_indices_from(G)] += 1.0
-                        G = np.dot(S.T, np.linalg.inv(G))
-                else:
-                    pass
-                # Now Evaluate A = A * (I + G * (D - S)):
-                D -= S
-                G = G.dot(D)
-                G[np.diag_indices_from(G)] += 1.0
-                A = A.dot(G)
-                
-            else:
-                # Apply Localization based on the localization function:
-                localization_method = self.filter_configs['localization_method']
-                localization_function = self.filter_configs['localization_function']
-                localization_radius = self.filter_configs['localization_radius']
-                #
-                if re.match(r'\Acovariance(-|_)*filtering\Z', localization_method, re.IGNORECASE):
-                    # Evaluate the Kalman gain matrix (with HPH^T, and PH^T localized based on the filter settings)
-                    K = self._calc_Kalman_gain(A, HA)
-                    
-                    # Evaluate the Ensemble-Mean update (dx):
-                    ens_mean_update = np.dot(K, obs_innovations)
-                    
-                    # Recalculate the Kalman gain with observation variances/covariances multiplied by rfactor
-                    if rfactor != 1:
-                        K = self._calc_Kalman_gain(A, HA, rfactor)
-                    
-                    # Update Ensemble-Anomalies matrix:
-                    # get the current state of the random number generator
-                    current_random_state = np.random.get_state()                    
-                    # Generate the random observations (global perturbations of observations for the EnKF)
-                    D = np.random.randn(observation_size, ensemble_size)
-                    D *= np.sqrt(rfactor)
-                    D = np.dot(sqrtR, D)
-                    d = np.mean(D, 1)
-                    for ens_ind in xrange(ensemble_size):
-                        D[:, ens_ind] -= d
-                    D *= np.sqrt(ensemble_size / (ensemble_size-1.0))
-                    # Restore the state of the gaussian random number generator:
-                    np.random.set_state(current_random_state)
-                    
-                    # Now Evaluate A = A + K * (D - HA):
-                    D -= HA
-                    D = np.dot(K, D)
-                    A += D
-                    
-                    
-                elif re.match(r'\Alocal(-|_)*analysis\Z', localization_method, re.IGNORECASE):
-                    raise NotImplementedError("TO BE UPDATED...")
-                    # ens_mean_update np.empty(state_size)
-                    # for state_ind in xrange(state_size):
-                    #     # find local observation:
-                    
-                    pass                    
-                    # # ------------------^^^^ TRANSLATE ^^^^-------------------
-                    # Check 'assimilate.m' line 188
-                    # for i = 1 : n
-                    #     [localobs, coeffs] = find_localobs(prm, i, pos);
-                    #     ploc = length(localobs);
-                    #     if ploc == 0
-                    #         continue
-                    #     end
-                    #     
-                    #     Sloc = S(localobs, :) .* repmat(coeffs, 1, m);
-                    #     
-                    #     if m <= ploc
-                    #         Gloc = inv(speye(m) + Sloc' * Sloc) * Sloc';
-                    #     else
-                    #         Gloc = Sloc' * inv(speye(ploc) + Sloc * Sloc');
-                    #     end
-                    #     
-                    #     dx(i) = A(i, :) * Gloc * (s(localobs) .* coeffs);
-                    #     
-                    #     if rfactor ~= 1
-                    #         Sloc = Sloc / sqrt(rfactor);
-                    #         if m <= ploc
-                    #             Gloc = inv(speye(m) + Sloc' * Sloc) * Sloc';
-                    #         else
-                    #             Gloc = Sloc' * inv(speye(ploc) + Sloc * Sloc');
-                    #         end
-                    #     end
-                    #     
-                    #     Dloc = D(localobs, :) .* repmat(coeffs, 1, m);
-                    #     A(i, :) = A(i, :) + A(i, :) * Gloc * (Dloc - Sloc);
-                    # end
-                    # -------------------------------------
-                    
-                else:
-                    print("Localization method '%s' is not Supported/Recognized!" % localization_method)
-                    raise ValueError
-            
-            # Inflate the ensemble if required; this is done by magnifying the matrix of ensemble-anomalies:
-            inflation_fac=self.filter_configs['inflation_factor']
-            if inflation_fac > 1.0:
-                if self._verbose:
-                    print('Inflating the forecast ensemble...')
-                #
-                A *= inflation_fac
-                #
-                if self._verbose:
-                    print('inflated? : ', (analysis_ensemble[0][:]!=inflated_ensemble[0][:]).any())
-            
-            # Now we are good to go; update the ensemble mean, and ensemble-anomalies using ens_mean_update, and A
-            ens_mean_update_vec = self.model.state_vector()
-            ens_mean_update_vec[:] = np.squeeze(ens_mean_update)
-            analysis_state = forecast_state.copy()
-            analysis_state = analysis_state.add(ens_mean_update_vec)
-            analysis_mean_np = np.squeeze(analysis_state.get_numpy_array())
-            try:
-                analysis_ensemble = self.filter_configs['analysis_ensemble']
-            except(ValueError, KeyError, NameError, AttributeError):
-                analysis_ensemble = []
-            finally:
-                if analysis_ensemble is None:
-                    analysis_ensemble = []
-                elif isinstance(analysis_ensemble, list):
-                    if len(analysis_ensemble)!=0 and len(analysis_ensemble)!=ensemble_size:
-                        analysis_ensemble = []
-                else:
-                    print("analysis_ensemble type is not recognized!")
-                    raise TypeError
-            
-            if len(analysis_ensemble) == 0:
-                # Append analysis states
+            if localize_covariances:
+                radius = self.filter_configs['localization_radius']
+                loc_func = self.filter_configs['localization_function']
+                Pb = self._cov_mat_loc(Pb, radius, loc_func)
+
+            HP = np.empty((observation_size, state_size))
+            HPHT = np.empty((observation_size, observation_size))
+            tmp_state = model.state_vector()
+            for st_ind in xrange(state_size):
+                tmp_state[:] = Pb[:, st_ind]
+                HP[:, st_ind] = self.model.observation_operator_Jacobian_prod_vec(forecast_state, tmp_state).get_numpy_array()
+            for obs_ind in xrange(observation_size):
+                tmp_state[:] = HP[obs_ind, :]
+                HPHT[obs_ind, :] = self.model.observation_operator_Jacobian_prod_vec(forecast_state, tmp_state).get_numpy_array()
+            del tmp_state
+
+            use_lu = True
+
+            #
+            analysis_ensemble = []
+            xa = self.model.state_vector()
+            #
+            if use_lu:
+                K_lu, K_piv = lu_factor( HPHT + R )
+
                 for ens_ind in xrange(ensemble_size):
-                    analysis_ens_member = self.model.state_vector()
-                    analysis_ens_member[:] = np.squeeze(A[:, ens_ind]) + analysis_mean_np
-                    analysis_ensemble.append(analysis_ens_member)
+                    s = lu_solve((K_lu, K_piv) , (Y[:, ens_ind] - Hx[:, ens_ind]))
+                    s = HP.T.dot(s)
+                    xa[:] = s[:] + xf_b[:]
+                    analysis_ensemble.append(xa.copy())
             else:
-                # update analysis ensemble in place
+                K = np.dot(HP.T, np.linalg.inv(HPHT + R))
                 for ens_ind in xrange(ensemble_size):
-                    analysis_ensemble[ens_ind][:] = np.squeeze(A[:, ens_ind]) + analysis_mean_np
-            
-            # Ensemble Rotation:
-            
-            
+                    s = K.dot(Y[:, ens_ind] - Hx[:, ens_ind])
+                    xa[:] = s[:] + xf_b[:]
+                    analysis_ensemble.append(xa.copy())
+
+
+            analysis_state = utility.ensemble_mean(analysis_ensemble)
+
             # Update analysis ensemble and analysis state (average of the analysis_ensemble)
             self.filter_configs['analysis_ensemble'] = analysis_ensemble
 
             # Update the analysis_state in the filter_configs dictionary.
             self.filter_configs['analysis_state'] = analysis_state
             #
+
+            #
+            #
+            # #
+            # # PREPARE for ASSIMILATION:
+            # # ---------------------------
+            #
+            #
+            #
+            #
+            #
+            # # Obserbation Innovation matrix:
+            # D = np.random.randn(observation_size, ensemble_size)
+            # d_mean = np.mean(D, 1)
+            # for ens_ind in xrange(ensemble_size):
+            #     D[:, ens_ind] = sqrtR.dot(D[:, ens_ind] - d_mean)
+            #
+            # for ens_ind in xrange(ensemble_size):
+            #     D[:, ens_ind] += observation - self.model.evaluate_theoretical_observation(forecast_ensemble[ens_ind]).get_numpy_array()
+            #
+            # # Restore the state of the gaussian random number generator:
+            # np.random.set_state(current_random_state)
+            #
+            #
+            #
+            # # Model-observation of the forecast ensemble members:
+            # tmp_state = self.model.state_vector()
+            # HP = np.empty((observation_size, state_size))
+            # HPHT = np.empty((observation_size, observation_size))
+            # for st_ind in xrange(state_size):
+            #     tmp_state[:] = Pb[:, st_ind]
+            #     HP[:, st_ind] = self.model.observation_operator_Jacobian_prod_vec(forecast_state, tmp_state).get_numpy_array()
+            # for obs_ind in xrange(observation_size):
+            #     tmp_state[:] = HP[obs_ind, :]
+            #     HPHT[obs_ind, :] = self.model.observation_operator_Jacobian_prod_vec(forecast_state, tmp_state).get_numpy_array()
+            #
+            # K_lu, K_piv = lu_factor( HPHT + R )
+            #
+            # analysis_ensemble = []
+            # xf_update = self.model.state_vector()
+            #
+            # for e_ind in xrange(ensemble_size):
+            #     s = lu_solve((K_lu, K_piv) , D[:, e_ind])
+            #     s = HP.T.dot(s)
+            #     xf_update[:] = s[:]
+            #     analysis_ensemble.append(forecast_state.add(xf_update, in_place=False))
+
+            #
         #
         else:
             raise NotImplementedError("To be implemented!")
 
-    #
-    def _calc_Kalman_gain(self, A, HA, rfactor=1.0):
+        f = self.filter_configs['inflation_factor']
+        self.filter_configs['analysis_ensemble'] = utility.inflate_ensemble(self.filter_configs['analysis_ensemble'], f, in_place=True)
+
+
+    def _cov_mat_loc(self, Pb, loc_radius, loc_func, cor_loc_dir=3):
         """
-        Calculate and return Kalman gain. 
+        Localize the covariance matrix via pointwise product
+        """
+        model = self.model
+        state_size = model.state_size()
+
+        Pb_copy = Pb.copy()
+
+
+        # Naive Localization:
+
+        if cor_loc_dir is None:
+            loc_direct_approach = self.filter_configs['loc_direct_approach']
+        else:
+            loc_direct_approach = cor_loc_dir
+
+        if loc_direct_approach<1 or loc_direct_approach>6:
+            print("loc_direct_approach MUST be an integer from 1-6, see Attia's Notes on OED_Localization!")
+            raise ValueError
+
+        if loc_func is None:
+            localization_function = self.filter_configs['localization_function']
+        else:
+            localization_function = loc_func
+        localization_radius = loc_radius
+
+        # number of model-grid dimensions
+        try:
+            num_dimensions = self.model.model_configs['num_dimensions']
+        except(KeyError):
+            num_dimensions = None
+        # get the observational grid
+        observations_positions = self.model.get_observations_positions()
+        num_obs_dims = np.size(observations_positions, 1)
+        #
+        if num_dimensions is None:
+            num_dimensions = num_obs_dims
+        elif (max(num_dimensions, num_obs_dims) == 1):
+            num_dimensions = num_obs_dims = 1
+        else:
+            pass
+        #
+        try:
+            periodic_bc = self.model.model_configs['periodic']
+        except(KeyError, NameError, AttributeError):
+            periodic_bc = False
+
+        if num_dimensions <= 1:
+            try:
+                model_grid = self.model.get_model_grid()
+                model_grid = np.asarray(model_grid).squeeze()
+            except:
+                model_grid = np.arange(state_size)
+
+            # Localization in the observation space:
+            for st_ind in xrange(state_size):
+                ref_st_coord = model_grid[st_ind]
+                # distances = np.abs(model_grid[st_ind: ] - ref_st_coord).squeeze()
+                distances = np.abs(model_grid[:] - ref_st_coord).squeeze()
+                if distances.ndim == 0:
+                    distances = np.array([distances.item()])
+
+                #
+                # update distances for periodic models/boundary-conditions (e.g. Lorenz 96)
+                if periodic_bc:
+                    rem_distances = (model_grid[-1]-model_grid[0]) +(model_grid[1]-model_grid[0])  - distances
+                    up_distances = distances > rem_distances
+                    distances[up_distances] = rem_distances[up_distances]
+                #
+                # print("distances", distances)
+                if np.isscalar(localization_radius):
+                    loc_coeffs = utility.calculate_localization_coefficients(localization_radius, distances, localization_function)
+                else:
+                    # loc_coeffs = utility.calculate_localization_coefficients(localization_radius[st_ind: ], distances, localization_function)
+                    loc_coeffs = utility.calculate_localization_coefficients(localization_radius[st_ind], distances, localization_function)
+                #
+
+                if loc_direct_approach == 1:
+                    # radius is fixed over rows of the covariance matrix:
+                    Pb[st_ind, : ] *= loc_coeffs
+
+                elif loc_direct_approach == 2:
+                    # radius is fixed over rows of the covariance matrix:
+                    Pb[:, st_ind ] *= loc_coeffs
+
+                elif loc_direct_approach == 3 or loc_direct_approach == 6:
+                    # print("\n\n\n\n\n >>>>>>> COOL.... <<<<<<<<\n\n\n\n\n")
+                    # radius is fixed over rows of the covariance matrix:
+                    #
+                    if np.isscalar(localization_radius):
+                        Pb[st_ind, st_ind: ] *= loc_coeffs[st_ind: ]
+                        Pb[st_ind:, st_ind ] *= loc_coeffs[st_ind: ]
+
+                    else:
+                        vert_coeffs = utility.calculate_localization_coefficients(localization_radius, distances, localization_function)
+                        Pb[st_ind:, st_ind ] *= (0.5 * (loc_coeffs[st_ind: ] + vert_coeffs[st_ind: ]))
+                        Pb[st_ind, st_ind: ] *= (0.5 * (loc_coeffs[st_ind: ] + vert_coeffs[st_ind: ]))
+
+                elif loc_direct_approach == 4:
+                    # radius is fixed over rows, and columnsn of the covariance matrix, and are varied downwards:
+                    Pb[st_ind, st_ind: ] *= loc_coeffs[st_ind: ]
+                    Pb[st_ind: , st_ind] *= loc_coeffs[st_ind: ]
+
+                elif loc_direct_approach == 5:
+                    # radius is fixed over rows, and columnsn of the covariance matrix, and are varied upwards:
+                    Pb[st_ind, : st_ind+1 ] *= loc_coeffs[st_ind: ]
+                    Pb[ : st_ind+1, st_ind] *= loc_coeffs[st_ind: ]
+
+                else:
+                    print("loc_direct_approach MUST be an integer from 1-6, see Attia's Notes on OED_Localization!")
+                    raise ValueError
+                # Pb[st_ind, st_ind] = 0.9 * Pb[st_ind, st_ind] + 0.1
+
+
+        elif num_dimensions==2:
+            #
+            # WARNING: This should not be called online for big models. Consider calculating offline, and writing to file!
+            try:
+                model_grid = self.model.get_model_grid()
+            except:
+                try:
+                    nx = self.model.model_configs['nx']
+                    ny = self.model.model_configs['ny']
+                    dx = self.model_configs['dx']
+                    dy = self.model_configs['dy']
+                except:
+                    nx = np.int(np.floor(np.sqrt(state_size)))
+                    ny = state_size / nx
+                    dx = 1.0
+                    dy = 1.0
+                    model_grid = np.empty((state_size, 2))
+
+                    x_indexes = np.arange(nx) * dx
+                    y_indexes = np.arange(ny) * dy
+                    model_grid[:, 0] = list(x_indexes) * ny  # test if reshaping is faster!
+                    model_grid[:, 1] = np.repeat(y_indexes, nx)
+                    #
+
+            for st_ind, ref_coord in enumerate(model_grid):
+                # coords = model_grid[st_ind: , :]
+                coords = model_grid
+                distance = np.sqrt( (coords[:, 0]-ref_coord[0])**2 + (coords[:, 1]-ref_coord[1])**2 )
+
+                if np.isscalar(localization_radius):
+                    loc_coeffs = utility.calculate_localization_coefficients(radius=localization_radius,
+                                                                             distances=distance,
+                                                                             method=localization_function)
+                else:
+                    loc_coeffs = utility.calculate_localization_coefficients(radius=localization_radius[st_ind],
+                                                                             distances=distance,
+                                                                             method=localization_function)
+
+                # Pb[st_ind, st_ind:] *= loc_coeffs
+                # Pb[st_ind:, st_ind] *= loc_coeffs
+                if loc_direct_approach == 1:
+                    # radius is fixed over rows of the covariance matrix:
+                    Pb[st_ind, : ] *= loc_coeffs
+
+                elif loc_direct_approach == 2:
+                    # radius is fixed over rows of the covariance matrix:
+                    Pb[:, st_ind ] *= loc_coeffs
+
+                elif loc_direct_approach == 3 or loc_direct_approach == 6:
+                    # radius is fixed over rows of the covariance matrix:
+                    #
+                    if np.isscalar(localization_radius):
+                        Pb[st_ind, st_ind: ] *= loc_coeffs[st_ind: ]
+                        Pb[st_ind:, st_ind ] *= loc_coeffs[st_ind: ]
+
+                    else:
+                        vert_coeffs = utility.calculate_localization_coefficients(localization_radius, distances, localization_function)
+                        Pb[st_ind:, st_ind ] *= (0.5 * (loc_coeffs[st_ind: ] + vert_coeffs[st_ind: ]))
+                        Pb[st_ind, st_ind: ] *= (0.5 * (loc_coeffs[st_ind: ] + vert_coeffs[st_ind: ]))
+                    #
+
+                elif loc_direct_approach == 4:
+                    # radius is fixed over rows, and columnsn of the covariance matrix, and are varied downwards:
+                    Pb[st_ind, st_ind: ] *= loc_coeffs[st_ind: ]
+                    Pb[st_ind: , st_ind] *= loc_coeffs[st_ind: ]
+
+                elif loc_direct_approach == 5:
+                    # radius is fixed over rows, and columnsn of the covariance matrix, and are varied upwards:
+                    Pb[st_ind, : st_ind+1 ] *= loc_coeffs[st_ind: ]
+                    Pb[ : st_ind+1, st_ind] *= loc_coeffs[st_ind: ]
+
+                else:
+                    print("loc_direct_approach MUST be an integer from 1-6, see Attia's Notes on OED_Localization!")
+                    raise ValueError
+                pass
+                #
+        #
+        else:
+            print("Only up to 2D models are handled Here!")
+            raise NotImplementedError
+
+        #
+        return Pb
+
+
+
+    #
+    def _calc_Kalman_gain(self, A, HA, rfactor=1.0, cor_loc_dir=3):
+        """
+        Calculate and return Kalman gain.
         All matrices passed and returned from this function are Numpy-based
-        
+
         Args:
             A: Forecast Ensemble Anomalies matrix [forecast ensemble members - ensemble mean]
             HA: Forecast Ensemble Observations Anomalies matrix [HE(e) - Hx], e = 1,2,..., ensemble_size
-        
+            cor_loc_dir: determins the approach taken to localize HPHT for different localization radii [1:6] methods are currently supported
+
         Returns:
             K: Kalman gain matrix
-            
+
         """
         # model, and dimensionalities:
         model = self.model
         state_size = model.state_size()
         ensemble_size = self.sample_size
         observation_size = model.observation_vector_size()
-        
+
         # Calculate Kalman Gain, and carry out localization if needed:
         HPHT = (1.0/(ensemble_size - 1)) * np.dot(HA, HA.T)
         PHT = (1.0/(ensemble_size - 1)) * np.dot(A, HA.T)
-        
+
         # localization info:
         localize_covariances = self.filter_configs['localize_covariances']
         #
         # Apply covariance localization if requested:
         if localize_covariances:
-            
-            # get dimensionalities:
-            # number of model-grid dimensions
-            try:
-                num_dimensions = model.model_configs['num_dimensions']
-            except(KeyError):
-                num_dimensions = None
-            
-            # get the observational grid
-            observations_positions = model.get_observations_positions()
-            num_obs_dims = np.size(observations_positions, 1)
+
+            self._validate_localization_radii()
+            localization_function = self.filter_configs['localization_function']
+            orig_loc_radius = self.filter_configs['localization_radius']
+
+            if self._verbose:
+                print("Started Localization step in the observation space; ")
+                print("Localization radius/radii: %s" % repr(localization_radius))
+
+            # model_grid, and observation_grid, and dimensions; for calculating distances:
+            model_grid = model.get_model_grid()
+            observation_grid = model.get_observation_grid()
+            num_dimensions = np.size(model_grid, 1)
+            num_obs_dims = np.size(observation_grid, 1)
             #
-            if num_dimensions is None:
-                num_dimensions = num_obs_dims
-            elif (max(num_dimensions, num_obs_dims) == 1):
-                num_dimensions = num_obs_dims = 1
-            else:
-                pass
-                
             if num_obs_dims != num_dimensions:
                 print("Observational grid dimension mismatches the model grid dimension!. \n  \
                        Observation dimensions = %d, Model state dimensions = %d" % (num_obs_dims, num_dimensions))
                 raise ValueError
-            
-            try:
-                dx = model.model_configs['dx']
-            except(KeyError, NameError, AttributeError):
-                dx = 1
-            
-            if num_dimensions <=1:
-                dy = dx
-            elif num_dimensions ==2:
-                try:
-                    dy = model.model_configs['dy']
-                except(KeyError, NameError, AttributeError):
-                    dy = dx
             else:
-                print("Sorry: only up to 2D models are handled Here!")
-                raise NotImplementedError
-            
-            #
+                num_dims = num_obs_dims
+
+            try:
+                periodic_bc = model.model_configs['periodic']
+            except(KeyError, NameError, AttributeError):
+                periodic_bc = False
+
+            if periodic_bc:
+                try:
+                    dx = model.model_configs['dx']
+                except:
+                    dx = 1
+
+            # Masking HPHT < if more than one observatin is made >
             if observation_size>1:
-                # Masking HPHT :if more than one observatin is made:
-                    
-                localization_function = self.filter_configs['localization_function']
-                #
-                localization_radii = self.filter_configs['localization_radius']
-                equal_radii = None
-                if np.isscalar(localization_radii):
-                    localization_radius = localization_radii  # just for convenience
+                if np.isscalar(orig_loc_radius):
+                    localization_radius = orig_loc_radius
                     equal_radii = True
                 else:
-                    
-                    localization_radius = np.asarray(localization_radii[:])
+                    # make sure th localization radii are in the observations space; nearest is taken if it is in the state space
                     equal_radii = False
                     #
-                    if localization_radius.size == state_size:
-                        tmp_state = model.state_vector()
-                        # tmp_state[:] = localization_radius                            
-                        # localization_radius = model.evaluate_theoretical_observation(tmp_state).get_numpy_array()  (Wrong!)
-                        pass
+                    if orig_loc_radius.size == observation_size:
+                        # loclaization radii are of the right size
+                        localization_radius = orig_loc_radius
                         #
-                        # localization_radius are designed for state vectors; we need those for observation gridpoints:
-                        state_localization_radius = localization_radius
-                        localization_radius = []
-                        # obs_grid = model.get_observational_grid()
-                        for i in xrange(observation_size):
-                            # get localization radius from closest model grid point:
-                            nb_inds = []
-                            # dx2 = min(dx, dy)
-                            dx2 = max(dx, dy)
-                            while len(nb_inds) == 0 and dx2 <= dx*state_size:
-                                nb_inds = model.get_neighbors_indexes(index=i, 
-                                                                      radius=dx2, 
-                                                                      source_index='obs', 
-                                                                      target_index='state')
-                                #
-                                if len(nb_inds) > 0:
-                                    # found neighboring gridpoints; 
-                                    # empirically choose the localization radius of the first one (we can follow other strategies!)
-                                    localization_radius.append(state_localization_radius[nb_inds[0]])
-                                    break
-                                
-                                # sanity check:
-                                if dx2 >= dx*state_size or dx2 >= dy*state_size:  # this might be too much!
-                                    if len(nb_inds) == 0:
-                                        print("This is an impossible situation: No state grid points found near observation index %d" %i)
-                                        print("Terminating!")
-                                        raise ValueError
-                                    else:
-                                        pass
-                                
-                                # double dx to find nearest gridpoint
-                                dx2 *= 2
-                        #
-                        localization_radius = np.asarray(localization_radius)
-                        #
-                        
-                        # Another sanity check!
-                        if localization_radius.size != observation_size:
-                            print("Projected localization_radius vector is supposed to be of length equal to the state vector!")
-                            print("localization_radius is of length %d" % len(localization_radius))
-                            print("observation vector size is %d" % observation_size)
-                            raise ValueError
-                        
-                        if self._verbose:
-                            print("Observation localization radii:")
-                            print(localization_radius)
-                            #
-                    #
-                    elif localization_radius.size == 1:
-                        localization_radius = localization_radius[0]
-                        equal_radii = True
-                    #
+                    elif orig_loc_radius.size == state_size:
+                        # find closes to each observation points
+                        localization_radius = np.empty(observation_size)
+
+                        for obs_ind in xrange(observation_size):
+                            obs_grid_point = observation_grid[obs_ind, :]
+                            dists = utility.euclidean_distance(model_grid, obs_grid_point)
+                            min_dist = dists.min()
+                            min_loc = np.where(dists == min_dist)[0][0]
+                            rad = localization_radius[min_loc]
+                            if periodic_bc:
+                                # TODO: this is incorrect for more than one dimension... Raise an error, or upgrade!
+                                dists = utility.euclidean_distance(model_grid-((state_size-1)*dx), obs_grid_point)
+                                min_dist_b = dists.min()
+                                if min_dist_b < min_dist:
+                                    min_loc = np.where(dists == min_dist_b)[0][0]
+                                    rad = localization_radius[min_loc]
+                            localization_radius[obs_ind] = rad
+
                     else:
                         print("localization_radius.size", localization_radius.size)
                         print("state_size", state_size)
                         print("observation_size", observation_size)
                         print("ensemble_size", ensemble_size)
-                        
-                        print("The localization radius has to be either a scalar or an iterable of dimension equal to the model state space size.")
+
+                        print("The localization radius has to be either a scalar or an iterable of dimension equal to the model state space sizeor observation size!")
                         raise ValueError
-                            
                 #
-                # print "++++++++++++++++ >>", type(localization_radius), localization_radius
-                
-                # TODO: Now, test if the localization_radius contains a scalr or an iterable (e.g. a list of radii)
-                #       Based on the size of the iterable (if not scalar) decide whether the localization radii are given 
-                #       in the observation space or the state space, and save the inputs/outputs accordingly in the configuration dictionary.
-                # TODO: If there are more than one radius, then we need to pick these radii one by one and apply them to the state entries,
-                #       however, we will actually need to project these radii to the observation space. Isn't it obvious?
-                #       Just project it by left multiplication with H, i.e. the observation operator.
-                # TODO: Inside the loop (in the observation space) use each of the projected radii, and 
-                #       after you calcluate the coefficients, you are done for the training.
-                
+                if self._verbose:
+                    print("\n\n Localization Radius in Observation space:\n %s \n\n" % repr(localization_radius))
+
+                #
+                # Start Localization in the observation space:
                 #
                 obs_loc_operator = np.zeros((observation_size, observation_size))
                 #
-                # Model-grid is of zero, or 1 dimensions:
-                if num_dimensions <= 1:
-                    
-                    try:
-                        periodic_bc = model.model_configs['periodic']
-                    except(KeyError, NameError, AttributeError):
-                        periodic_bc = False
-                    
-                    # Localization in the observation space:
-                    for obs_ind in xrange(observation_size):
-                        ref_obs_coord = np.squeeze(observations_positions[obs_ind])
-                        distances = np.abs(observations_positions[obs_ind:] - ref_obs_coord).squeeze()
-                        if distances.ndim == 0:
-                            distances = np.array([distances.item()])
-                            
+                if periodic_bc:
+                    cir_grid = observation_grid-((state_size-1)*dx)
+
+                # Localization in the observation space:
+                for obs_ind in xrange(observation_size):
+                    ref_obs_coord = observation_grid[obs_ind, :]
+                    distances = utility.euclidean_distance(observation_grid, ref_obs_coord)
+
+                    #
+                    # update distances for periodic models/boundary-conditions (e.g. Lorenz 96)
+                    if periodic_bc:
+                        rem_distances = utility.euclidean_distance(cir_grid, ref_obs_coord)
+                        for i in xrange(distances.size):
+                            distances[i] = min(distances[i], rem_distances[i])
+
+                    #
+                    if equal_radii:
+                        obs_loc_coeffs = utility.calculate_localization_coefficients(localization_radius, distances, localization_function)
+                    else:
+                        obs_loc_coeffs = utility.calculate_localization_coefficients(localization_radius[obs_ind], distances, localization_function)
                         #
-                        # update distances for periodic models/boundary-conditions (e.g. Lorenz 96)
-                        if periodic_bc:
-                            rem_distances = (observation_size*dx) - distances
-                            up_distances = distances > rem_distances
-                            distances[up_distances] = rem_distances[up_distances]
+
+                    if cor_loc_dir == 1:
+                        # radius is fixed over rows of the covariance matrix:
+                        HPHT[obs_ind, : ] *= obs_loc_coeffs
+
+                    elif cor_loc_dir == 2:
+                        # radius is fixed over rows of the covariance matrix:
+                        HPHT[:, obs_ind] *= obs_loc_coeffs
+
+                    elif cor_loc_dir == 3 or cor_loc_dir == 6:
+                        # print("\n\n\n\n\n >>>>>>> COOL.... <<<<<<<<\n\n\n\n\n")
+                        # radius is fixed over rows of the covariance matrix:
                         #
                         if equal_radii:
-                            obs_loc_coeffs = utility.calculate_localization_coefficients(localization_radius, distances, localization_function)
+                            HPHT[obs_ind, obs_ind: ] *= obs_loc_coeffs[obs_ind: ]
+                            HPHT[obs_ind:, obs_ind ] *= obs_loc_coeffs[obs_ind: ]
                         else:
-                            obs_loc_coeffs = utility.calculate_localization_coefficients(localization_radius[obs_ind], distances, localization_function)
-                            #
-                        obs_loc_operator[obs_ind, obs_ind:] = obs_loc_coeffs
-                        obs_loc_operator[obs_ind, :obs_ind] = obs_loc_operator[:obs_ind, obs_ind]
-                        #
-                    HPHT *= obs_loc_operator
-                    
-                elif num_dimensions==2:
-                    #
-                    loc_observations_positions = observations_positions.copy()
-                    for obs_ind in xrange(observation_size):
-                        ref_obs_coord = np.squeeze(loc_observations_positions[obs_ind, :])
-                        #
-                        loc_distances = loc_observations_positions[obs_ind:, :]
-                        loc_obs_cnt = np.size(loc_distances, 0)
-                        for dim_ind in xrange(num_obs_dims):
-                            loc_distances[:, dim_ind] -= ref_obs_coord[dim_ind]
-                        #
-                        distances = np.empty(loc_obs_cnt)
-                        for loc_obs_ind in xrange(loc_obs_cnt):
-                            distances[loc_obs_ind] = np.linalg.norm(loc_distances[loc_obs_ind, :])
-                        #
-                        if equal_radii:
-                            obs_loc_coeffs = utility.calculate_localization_coefficients(localization_radius, distances, localization_function)
-                        else:
-                            obs_loc_coeffs = utility.calculate_localization_coefficients(localization_radius[obs_ind], distances, localization_function)
-                        
-                        # obs_loc_coeffs is a row in the matrix H Decorr HT (which is also a column due to symmetry for the cartesian-gridded models.
-                        # Just make sure to throw an exception (e.g NotImplementedError) if self.model.configs['grid_type'] is not 'cartes|zian'
-                        # Now, we need to project each of these columns/rows to the full space by left, and right multiplication (properly) by the observation operator.
-                        # once we have HT Decorr H, (i.e. the rows), we need to return them in the configuration dictionary for Azam to use in the ML stuff.
-                        # the question now is:
-                        # which parts of the localization radii, we want
-                        
-                        obs_loc_operator[obs_ind, obs_ind:] = obs_loc_coeffs
-                        obs_loc_operator[obs_ind, :obs_ind] = obs_loc_operator[:obs_ind, obs_ind]
-                        #
-                    
-                    HPHT *= obs_loc_operator         
-                    #
-                else:
-                    print("Only up to 2D models are handled Here!")
-                    raise NotImplementedError
-            else:
-                # It's a single observation, no masking here is needed
-                pass
-            
-            # Mask PHT:
-            num_dimensions = model.model_configs['num_dimensions']
+                            vert_coeffs = utility.calculate_localization_coefficients(localization_radius, distances, localization_function)
+                            fac = 0.5 * (obs_loc_coeffs[obs_ind: ] + vert_coeffs[obs_ind: ])
+                            HPHT[obs_ind:, obs_ind] *= fac
+                            HPHT[obs_ind, obs_ind: ] *= fac
+
+                    elif cor_loc_dir == 4:
+                        # radius is fixed over rows, and columnsn of the covariance matrix, and are varied downwards:
+                        HPHT[obs_ind, obs_ind: ] *= obs_loc_coeffs[obs_ind: ]
+                        HPHT[obs_ind: , obs_ind] *= obs_loc_coeffs[obs_ind: ]
+
+                    elif cor_loc_dir == 5:
+                        # radius is fixed over rows, and columnsn of the covariance matrix, and are varied upwards:
+                        HPHT[obs_ind, : obs_ind+1 ] *= obs_loc_coeffs[obs_ind: ]
+                        HPHT[ : obs_ind+1, obs_ind] *= obs_loc_coeffs[obs_ind: ]
+
+                    else:
+                        print("cor_loc_dir MUST be an integer from 1-6, see Attia's Notes on OED_Localization!")
+                        raise ValueError
+
             #
-            if num_dimensions <= 1:
-                try:
-                    periodic = model.model_configs['periodic']
-                except(KeyError, NameError, AttributeError):
-                    periodic = False
-                
-                distances = observations_positions * dx
+            # Mask PHT:
+            #
+            if periodic_bc:
+                cir_grid = model_grid - ((state_size-1)*dx)
+
+            # loclaization of PHT by columns
+            for obs_ind in xrange(observation_size):
+                #
+                ref_obs_coord = observation_grid[obs_ind, :]
+                distances = utility.euclidean_distance(model_grid, ref_obs_coord)
                 #
                 # update distances for periodic models/boundary-conditions (e.g. Lorenz 96)
                 if periodic_bc:
-                    rem_distances = (observation_size*dx) - distances
-                    up_distances = distances > rem_distances
-                    distances[up_distances] = rem_distances[up_distances]
-                
-                if distances.ndim == 0:
-                    distances = np.array([distances.item()])
-                
+                    rem_distances = utility.euclidean_distance(cir_grid, ref_obs_coord)
+                    for i in xrange(distances.size):
+                        distances[i] = min(distances[i], rem_distances[i])
+
                 #
                 if equal_radii:
                     loc_coeffs = utility.calculate_localization_coefficients(localization_radius, distances, localization_function)
                 else:
-                    loc_coeffs = []
-                    for rad, dist in zip(localization_radius, distances): 
-                        coeff = utility.calculate_localization_coefficients(rad, dist, localization_function)
-                        loc_coeffs.append(coeff)
-                    loc_coeffs = np.asarray(loc_coeffs)
-                
-                try:
-                    mult = state_size / model.model_configs['num_prognostic_variables']
-                except (NameError, AttributeError, KeyError):
-                    mult = 1
-                nv = state_size / mult
-                
-                v = np.empty(state_size)
-                for obs_ind in xrange(observation_size):
-                    ref_obs_ind = int(np.squeeze(observations_positions[obs_ind]))
-                    offset = 0
-                    for prog_ind in xrange(mult):
-                        v[obs_ind+offset: nv+offset+1] = loc_coeffs[: nv-obs_ind]
-                        v[offset: offset+obs_ind] = loc_coeffs[nv-obs_ind: nv]
-                        #
-                        # v[ref_obs_ind+offset: nv+offset+1] = loc_coeffs[: nv-ref_obs_ind]
-                        # v[offset: offset+ref_obs_ind] = loc_coeffs[nv-ref_obs_ind: nv]
-                        #
-                        offset += nv
-                        
-                    PHT[:, obs_ind] *= v                    
-                #
-            elif num_dimensions==2:
-                nx = model.model_configs['nx']
-                ny = model.model_configs['ny']
-                if nx != ny:
-                    print("Only square domains are handled for 2D models!")
-                    raise NotImplementedError
-                else:
-                    # Eshta: Now localize HPT for 2D models....
-                    pass
-                    model_grid = model.get_model_grid()
-                    loc_coeff_coll = np.empty_like(PHT)
-                    for obs_ind in xrange(observation_size):
-                        ref_obs_ind = np.squeeze(observations_positions[obs_ind, :])
-                        #
-                        # Distance from this observation to all model grid points, and localization coefficients:                            
-                        loc_distances = model_grid.copy()
-                            
-                        for dim_ind in xrange(num_dimensions):
-                            loc_distances[:, dim_ind] -= ref_obs_ind[dim_ind]
-                        st_range = np.size(loc_distances, 0)
-                        distances = np.empty(st_range)
-                        for st_ind in xrange(st_range):
-                            distances[st_ind] = np.linalg.norm(loc_distances[st_ind, :])
-                        #
-                        if np.isscalar(localization_radius):
-                            loc_rad = localization_radius
-                            loc_coeffs = utility.calculate_localization_coefficients(loc_rad, distances, localization_function) 
-                        else:
-                            if localization_radius.size == distances.size:
-                                loc_rad = localization_radius
-                            elif localization_radius.size == observation_size and distances.size == state_size:
-                                # print "localization_radius.size == observation_size and distances.size == state_size"
-                                if re.match(r'\Alinear\Z', model._observation_operator_type, re.IGNORECASE):
-                                
-                                    tmp_dist = model.state_vector()
-                                    tmp_dist[:] = distances[:]
-                                    distances = model.evaluate_theoretical_observation(tmp_dist).get_numpy_array()
-                                    loc_rad = localization_radius
-                                    
-                                    loc_coeffs = utility.calculate_localization_coefficients(loc_rad, distances, localization_function) 
-                                    coeff_vec = model.observation_vector()
-                                    coeff_vec[:] = loc_coeffs[:]
-                                    loc_coeffs = model.observation_operator_Jacobian_T_prod_vec(None, loc_coeffs).get_numpy_array()
-                                    
-                                    # obs_loc_rad = model.observation_vector()
-                                    # obs_loc_rad[:] = localization_radius[:]
-                                    # loc_rad = model.observation_operator_Jacobian_T_prod_vec(None, obs_loc_rad).get_numpy_array()
-                                    
-                                else:
-                                    print "Multi-Localization Radii for 2D models is only supported if you provide localization vector in the state space, or the obsevation operator is linear!"
-                                    raise ValueError
-                                #
-                            elif localization_radius.size == state_size and distances.size == observation_size:
-                                print ">> The situation 'localization_radius.size == state_size and distances.size == observation_size' is not Implemented yet!"
-                                raise NotImplementedError
-                            else:
-                                print "This situation does not make any sense!"
-                                raise ValueError
-                        
-                        # loc_coeffs = utility.calculate_localization_coefficients(loc_rad, distances, localization_function) 
-                        #
-                        PHT[:, obs_ind] *= loc_coeffs;
-                        #
-                            
-                        loc_coeff_coll[:, obs_ind] = loc_coeffs
-                    #
-                #
-            else:
-                print("Only up to 2D models are handled Here!")
-                raise NotImplementedError
+                    loc_coeffs = utility.calculate_localization_coefficients(localization_radius[obs_ind], distances, localization_function)
+
+                PHT[:, obs_ind] *= loc_coeffs
             #
         else:
             # No localization will take place. HPHT, and PHT won't be changed.
@@ -1523,18 +1473,46 @@ class EnKF(FiltersBase):
         # Now return the Kalman gain matrix
         return K
 
+    def _validate_localization_radii(self):
+        """
+        """
+        model = self.filter_configs['model']
+        state_size = model.state_size()
+        observation_size = model.observation_size()
+
+        loc_radius = self.filter_configs['localization_radius']
+        if utility.isscalar(loc_radius):
+            pass
+        elif utility.isiterable(loc_radius):
+            loc_radius = np.asarray([l for l in loc_radius]).squeeze().flatten()
+            if loc_radius.size == 1:
+                loc_radius = loc_radius[0]
+            elif loc_radius.size == state_size:
+                pass
+            elif loc_radius.size == observation_size:
+                pass
+            else:
+                print("Localization radius is an iterable of the wrong size!")
+                print("Localizaiton radius size: %d" % loc_radius.size)
+                print("State dimension: %d" % state_size)
+                print("Observation dimension: %d" % observation_size)
+                raise ValueError
+                #
+        self.filter_configs.update({'localization_radius': loc_radius})  # is it necessary!
+        #  Done... Return None...
+
     #
     def print_cycle_results(self):
         """
         Print filtering results from the current cycle to the main terminal
         A check on the corresponding options in the configurations dictionary is made to make sure
         saving is requested.
-        
+
         Args:
-        
+
         Returns:
             None
-            
+
         """
         class OldStyle: pass
         if issubclass(OldStyle().__class__, object):
@@ -1545,19 +1523,19 @@ class EnKF(FiltersBase):
             super(EnKF, self).print_cycle_results()
         pass  # Add more...
         #
-    
+
     #
     def save_cycle_results(self, output_dir=None, cleanup_out_dir=False):
         """
         Save filtering results from the current cycle to file(s).
         Check the output directory first. If the directory does not exist, create it.
-        
+
         Args:
             output_dir: full path of the directory to save results in
-                  
+
         Returns:
             None
-            
+
         """
         # Retrieve output configurations
         output_configs = self.output_configs
@@ -1700,7 +1678,8 @@ class EnKF(FiltersBase):
             rmse_file_path = os.path.join(filter_statistics_dir, rmse_file_name)
             if not os.path.isfile(rmse_file_path):
                 # rmse file does not exist. create file and add header.
-                header = "RMSE Results: Filter: '%s' \n %s \t %s \t %s \t %s \t %s \n" % (self._filter_name,
+                filter_name = self.filter_configs['filter_name']
+                header = "RMSE Results: Filter: '%s' \n %s \t %s \t %s \t %s \t %s \n" % (filter_name,
                                                                                           'Observation-Time'.rjust(20),
                                                                                           'Forecast-Time'.rjust(20),
                                                                                           'Analysis-Time'.rjust(20),
@@ -1770,19 +1749,19 @@ class EnKF(FiltersBase):
             print("Unsupported output format: '%s' !" % file_output_file_format)
             raise ValueError()
             #
-    
+
     #
     def read_cycle_results(self, output_dir, read_err_covars=False):
         """
         Read filtering results from file(s).
         Check the output directory first. If the directory does not exist, raise an IO error.
         If the directory, and files exist, Start retrieving the results properly
-        
+
         Args:
-            output_dir: directory where KF results are saved. 
+            output_dir: directory where KF results are saved.
                 We assume the structure is the same as the structure created by the KF implemented here
                 in 'save_cycle_results'.
-            
+
         Returns:
             reference_state:
             forecast_state:
@@ -1790,20 +1769,19 @@ class EnKF(FiltersBase):
             observation:
             forecast_err_covar:
             analysis_err_covar:
-            
+
         """
         # TODO: To be written!
         raise NotImplementedError
         #
-
 
 #
 #
 class DEnKF(EnKF):
     """
     Deterministic Ensemble-Kalman filtering with. This mainly differs from the class 'EnKF' in the analysis step; everything else is identical
-    
-    
+
+
     Args:
         filter_configs:  dict,
             A dictionary containing EnKF filter configurations.
@@ -1812,7 +1790,7 @@ class DEnKF(EnKF):
                 * model (default None):  model object
                 * filter_name (default None): string containing name of the filter; used for output.
                 * hybrid_background_coeff (default 0.0): used when hybrid background errors are used,
-                    this multiplies the modeled Background error covariance matrix. 
+                    this multiplies the modeled Background error covariance matrix.
                     Will be effective only if the covariance localization is done in full space, otherwise it is meaningless.
                 * inflation_factor (default 1.09): covariance inflation factor
                 * obs_covariance_scaling_factor (default 1): observation covariance scaling factor (rfactor2 in Sakov's Code)
@@ -1823,10 +1801,10 @@ class DEnKF(EnKF):
                     This is likely to be updated in future releases to be carried out here with more options.
                 * localization_method: method used to carry out filter localization to remove sporious correlations.
                   Three localization methods are supported:
-                     - 'covariance_filtering': involves modification of the update equations by replacing 
-                        the state error covariance by its element-wise product with some distance-dependent 
+                     - 'covariance_filtering': involves modification of the update equations by replacing
+                        the state error covariance by its element-wise product with some distance-dependent
                         correlation matrix. This is done by localizing covariances projected in the observation space.
-                     -  'local_analysis': uses a local approximation of the forecast covariance for updating 
+                     -  'local_analysis': uses a local approximation of the forecast covariance for updating
                         a state vector element, calculated by building a local window around this element.
                 * localization_radius (default np.infty): radius of influence of covariance decorrelation
                 * localization_function ('gaspari-cohn'): the covariance localization function
@@ -1864,16 +1842,16 @@ class DEnKF(EnKF):
                 * forecast_state (default None): model.state_vector object containing the forecast state.
                 * filter_statistics: dict,
                     A dictionary containing updatable filter statistics. This will be updated by the filter.
-                
+
         output_configs: dict,
             A dictionary containing screen/file output configurations.
             Supported configuarations:
             --------------------------
                 * scr_output (default False): Output results to screen on/off switch
                 * file_output (default True): Save results to file on/off switch
-                * file_output_dir (default 'Assimilation_Results'): relative path (to DATeS root directory) 
+                * file_output_dir (default 'Assimilation_Results'): relative path (to DATeS root directory)
                     of the directory to output results in
-                
+
                 * filter_statistics_dir (default 'Filter_Statistics'): directory where filter statistics (such as RMSE, ESS,...) are saved
                 * model_states_dir (default 'Model_States_Repository'): directory where model-states-like objects (including ensemble) are saved
                 * observations_dir (default 'Observations_Rpository'): directory where observations and observations operators are saved
@@ -1887,23 +1865,27 @@ class DEnKF(EnKF):
                         - 'pickle': python pickled objects,
                         - 'txt' or 'ascii': text files
                 * file_output_separate_files (default True): save all results to a single or multiple files
-                
+
     Returns:
         None
-    
+
     """
     #
-    _def_local_filter_configs = EnKF._def_local_filter_configs
-    _local_def_output_configs = EnKF._local_def_output_configs
+    _def_local_filter_configs = EnKF._def_local_filter_configs.copy()
+    _local_def_output_configs = EnKF._local_def_output_configs.copy()
     _supported_prior_distribution = EnKF._supported_prior_distribution
     #
-    
+
     def __init__(self, filter_configs=None, output_configs=None):
-        
-        _filter_name = "DEnKF"
-        self._def_local_filter_configs.update(dict(filter_name=_filter_name))
-        self._local_def_output_configs.update(dict(file_output_file_name_prefix='DEnKF_results'))
-        #    
+
+        DEnKF._def_local_filter_configs.update(dict(filter_name="DEnKF"))
+        DEnKF._local_def_output_configs.update(dict(file_output_file_name_prefix='DEnKF_results'))
+
+        # aggregate configurations, and attach filter_configs, output_configs to the filter object.
+        filter_configs = utility.aggregate_configurations(filter_configs, DEnKF._def_local_filter_configs)
+        output_configs = utility.aggregate_configurations(output_configs, DEnKF._local_def_output_configs)
+
+        #
         class OldStyle: pass
         if issubclass(OldStyle().__class__, object):
             # object-inherited class
@@ -1911,24 +1893,38 @@ class DEnKF(EnKF):
         else:
             # old-stype class
             super(DEnKF, self).__init__(filter_configs=filter_configs, output_configs=output_configs)
-            
+
         # EnKF.__init__(self, filter_configs, output_configs)
         #
-            
+
     #
     def analysis(self, all_to_numpy=True):
         """
         Analysis step:
-        
+
         Args:
             all_to_numpy (default False): bool,
                 convert all data structures to Numpy and re-place results into target structures only in the end.
-        
+
         Returns:
             None. Only self.filter_configs is updated.
-            
+
         """
-        # 
+        forecast_ensemble = self.filter_configs['forecast_ensemble']
+        forecast_state = utility.ensemble_mean(forecast_ensemble)
+        forecast_state_np = forecast_state.get_numpy_array()
+
+        # Check if the forecast ensemble should be inflated;
+        f = self.filter_configs['forecast_inflation_factor']
+
+        # print("Inflating with: ", f)
+        # print("Beofre Inflation, X0: ", forecast_ensemble[0])
+
+        utility.inflate_ensemble(forecast_ensemble, f, in_place=True)
+        # print("After Inflation, X0: ", self.filter_configs['forecast_ensemble'][0])
+
+
+        #
         if all_to_numpy:
             # get the forecast state as the mean of the forecast ensemble. Will not be used for GMM!
             state_size = self.model.state_size()
@@ -1936,10 +1932,8 @@ class DEnKF(EnKF):
                 observation_size = self.observation_size
             except(NameError, AttributeError):
                 observation_size = self.model.observation_vector_size()
-            forecast_ensemble = self.filter_configs['forecast_ensemble']
-            forecast_state = utility.ensemble_mean(forecast_ensemble)
             ensemble_size = self.sample_size
-            
+
             # observation error covariance matrix
             R = self.model.observation_error_model.R.get_numpy_array()
             try:
@@ -1951,61 +1945,58 @@ class DEnKF(EnKF):
             for ens_ind in xrange(ensemble_size):
                 # forecast_ensemble[:, ens_ind] = forecast_ensemble[ens_ind][:]
                 forecast_ensemble_np[:, ens_ind] = np.squeeze(forecast_ensemble[ens_ind].get_numpy_array())
-            forecast_state_np = np.squeeze(forecast_state.get_numpy_array())
-            # print "+++++++++++++", forecast_state_np
-            
+
             # get the measurements vector
             observation = self.filter_configs['observation'].get_numpy_array()
-            
+
             #
             # PREPARE for ASSIMILATION:
             # ---------------------------
-            
             # Model-observation of the forecast ensemble members:
             HE = np.empty((observation_size, ensemble_size))
             for ens_ind in xrange(ensemble_size):
                 obs_vec = self.model.evaluate_theoretical_observation(forecast_ensemble[ens_ind])
                 HE[:, ens_ind] = obs_vec.get_numpy_array()
-            
+
             # Mean of forecasted observations:
             Hx = np.squeeze(np.mean(HE, 1))
-            
+
             # Observation innovations:
             # obs_innovations = observation - Hx
             obs_innovations = observation - self.model.evaluate_theoretical_observation(forecast_state).get_numpy_array()
 
-            if self._verbose:                
+            if self._verbose:
                 print('Maximum observation-innovation magnitude = %f' % np.abs(obs_innovations).max())
-            
+
             # observation covariance scaling factor
             rfactor = float(self.filter_configs['obs_covariance_scaling_factor'])
-            
+
             # Forecast Ensemble Anomalies matrix [forecast ensemble members - ensemble mean]
             A = forecast_ensemble_np.copy()
             for ens_ind in xrange(ensemble_size):
                 A[:, ens_ind] -= forecast_state_np
-            
+
             # Forecast Ensemble Observations Anomalies matrix [HE(e) - Hx], e = 1,2,..., ensemble_size
             HA = HE.copy()  # should reuse --> in-place
             for ens_ind in xrange(ensemble_size):
                 HA[:, ens_ind] -= Hx
-            
+
             #
             # START ASSIMILATION:
             # ---------------------------
-            
-            # standardised innovation and ensemble anomalies 
+
+            # standardised innovation and ensemble anomalies
             # sqrtR_lu, sqrtR_piv = lu_factor( sqrtR )
             # s = obs_innovations / np.sqrt(ensemble_size-1.0)
             # s = lu_solve((sqrtR_lu, sqrtR_piv) , s)
             # S = np.empty_like(HA)
             # for ens_ind in xrange(ensemble_size):
             #     S[:, ens_ind] = (lu_solve((sqrtR_lu, sqrtR_piv) , HA[:, ens_ind])) / np.sqrt(ensemble_size-1.0)
-            
+
             sqrtR_inv = np.linalg.inv(sqrtR)
             s = sqrtR_inv.dot(obs_innovations) / np.sqrt(ensemble_size-1.0)
             S = sqrtR_inv.dot(HA) / np.sqrt(ensemble_size-1.0)
-            
+
             # Analysis is carried out based on the tpe of localization in what follows:
             #
             localize_covariances = self.filter_configs['localize_covariances']
@@ -2021,10 +2012,10 @@ class DEnKF(EnKF):
                     G = np.dot(S, S.T)
                     G[np.diag_indices_from(G)] += 1.0
                     G = np.dot(S.T, np.linalg.inv(G))
-                
+
                 # Evaluate the Ensemble-Mean update:
                 ens_mean_update = np.dot(A.dot(G), s)  # dx
-                
+
                 # Evaluate Ensemble-Anomalies update:
                 if rfactor != 1.0:
                     # rescale S, and G
@@ -2045,34 +2036,34 @@ class DEnKF(EnKF):
                 T_R = -0.5 * G.dot(S)
                 T_R[np.diag_indices_from(T_R)] += 1.0
                 A = A.dot(T_R)
-                
+
             else:
                 # Apply Localization based on the localization function:
                 localization_method = self.filter_configs['localization_method']
-                localization_function = self.filter_configs['localization_function']
-                localization_radius = self.filter_configs['localization_radius']
+                # localization_function = self.filter_configs['localization_function']
+                # localization_radius = self.filter_configs['localization_radius']
                 #
                 if re.match(r'\Acovariance(-|_)*filtering\Z', localization_method, re.IGNORECASE):
                     # Evaluate the Kalman gain matrix (with HPH^T, and PH^T localized based on the filter settings)
                     K = self._calc_Kalman_gain(A, HA)
-                    
+
                     # Evaluate the Ensemble-Mean update (dx):
                     ens_mean_update = K.dot(obs_innovations)
-                    
+
                     # Recalculate the Kalman gain with observation variances/covariances multiplied by rfactor
                     if rfactor != 1:
                         K = self._calc_Kalman_gain(A, HA, rfactor)
-                        
+
                     # Now Evaluate A = A + K * (D - HA):
                     A -= (0.5 * K.dot(HA))
-                    
+
                 elif re.match(r'\Alocal(-|_)*analysis\Z', localization_method, re.IGNORECASE):
                     raise NotImplementedError("TO BE UPDATED...")
                     # ens_mean_update np.empty(state_size)
                     # for state_ind in xrange(state_size):
                     #     # find local observation:
-                    
-                    pass                    
+
+                    pass
                     # # ------------------^^^^ TRANSLATE ^^^^-------------------
                     # Check 'assimilate.m' line 188
                     # for i = 1 : n
@@ -2081,17 +2072,17 @@ class DEnKF(EnKF):
                     #     if ploc == 0
                     #         continue
                     #     end
-                    #     
+                    #
                     #     Sloc = S(localobs, :) .* repmat(coeffs, 1, m);
-                    #     
+                    #
                     #     if m <= ploc
                     #         Gloc = inv(speye(m) + Sloc' * Sloc) * Sloc';
                     #     else
                     #         Gloc = Sloc' * inv(speye(ploc) + Sloc * Sloc');
                     #     end
-                    #     
+                    #
                     #     dx(i) = A(i, :) * Gloc * (s(localobs) .* coeffs);
-                    #     
+                    #
                     #     if rfactor ~= 1
                     #         Sloc = Sloc / sqrt(rfactor);
                     #         if m <= ploc
@@ -2100,15 +2091,15 @@ class DEnKF(EnKF):
                     #             Gloc = Sloc' * inv(speye(ploc) + Sloc * Sloc');
                     #         end
                     #     end
-                    #     
+                    #
                     #     A(i, :) = A(i, :) - A(i, :) * 0.5 * Gloc * Sloc;
                     # end
                     # -------------------------------------
-                    
+
                 else:
                     print("Localization method '%s' is not Supported/Recognized!" % localization_method)
                     raise ValueError
-            
+
             # Inflate the ensemble if required; this is done by magnifying the matrix of ensemble-anomalies:
             inflation_fac=self.filter_configs['inflation_factor']
             if inflation_fac > 1.0:
@@ -2117,9 +2108,7 @@ class DEnKF(EnKF):
                 #
                 A *= inflation_fac
                 #
-                if self._verbose:
-                    print('inflated? : ', (analysis_ensemble[0][:]!=inflated_ensemble[0][:]).any())
-                
+
             #
             # Now we are good to go; update the ensemble mean, and ensemble-anomalies using ens_mean_update, and A
             analysis_mean_np = forecast_state_np + ens_mean_update
@@ -2131,28 +2120,27 @@ class DEnKF(EnKF):
                 analysis_ens_member = self.model.state_vector()
                 analysis_ens_member[:] = np.squeeze(A[:, ens_ind]) + analysis_mean_np
                 analysis_ensemble.append(analysis_ens_member)
-            
+
             # Ensemble Rotation:
-            
+
             # Update analysis ensemble and analysis state (average of the analysis_ensemble)
             self.filter_configs['analysis_ensemble'] = analysis_ensemble
 
             # Update the analysis_state in the filter_configs dictionary.
             self.filter_configs['analysis_state'] = analysis_state.copy()
             tes = self.filter_configs['analysis_state'].get_numpy_array()
-            
+
             #
         #
         else:
             raise NotImplementedError("To be implemented!")
-        
 
 #
 #
 class ETKF(EnKF):
     """
     A class implementing the ensemble transform Kalman Filter. This mainly differs from the class 'EnKF' in the analysis step; everything else is identical
-    
+
     Args:
         filter_configs:  dict,
             A dictionary containing EnKF filter configurations.
@@ -2161,7 +2149,7 @@ class ETKF(EnKF):
                 * model (default None):  model object
                 * filter_name (default None): string containing name of the filter; used for output.
                 * hybrid_background_coeff (default 0.0): used when hybrid background errors are used,
-                    this multiplies the modeled Background error covariance matrix. 
+                    this multiplies the modeled Background error covariance matrix.
                     Will be effective only if the covariance localization is done in full space, otherwise it is meaningless.
                 * inflation_factor (default 1.09): covariance inflation factor
                 * obs_covariance_scaling_factor (default 1): observation covariance scaling factor (rfactor2 in Sakov's Code)
@@ -2172,10 +2160,10 @@ class ETKF(EnKF):
                     This is likely to be updated in future releases to be carried out here with more options.
                 * localization_method: method used to carry out filter localization to remove sporious correlations.
                   Three localization methods are supported:
-                     - 'covariance_filtering': involves modification of the update equations by replacing 
-                        the state error covariance by its element-wise product with some distance-dependent 
+                     - 'covariance_filtering': involves modification of the update equations by replacing
+                        the state error covariance by its element-wise product with some distance-dependent
                         correlation matrix. This is done by localizing covariances projected in the observation space.
-                     -  'local_analysis': uses a local approximation of the forecast covariance for updating 
+                     -  'local_analysis': uses a local approximation of the forecast covariance for updating
                         a state vector element, calculated by building a local window around this element.
                 * localization_radius (default np.infty): radius of influence of covariance decorrelation
                 * localization_function ('gaspari-cohn'): the covariance localization function
@@ -2213,16 +2201,16 @@ class ETKF(EnKF):
                 * forecast_state (default None): model.state_vector object containing the forecast state.
                 * filter_statistics: dict,
                     A dictionary containing updatable filter statistics. This will be updated by the filter.
-                
+
         output_configs: dict,
             A dictionary containing screen/file output configurations.
             Supported configuarations:
             --------------------------
                 * scr_output (default False): Output results to screen on/off switch
                 * file_output (default True): Save results to file on/off switch
-                * file_output_dir (default 'Assimilation_Results'): relative path (to DATeS root directory) 
+                * file_output_dir (default 'Assimilation_Results'): relative path (to DATeS root directory)
                     of the directory to output results in
-                
+
                 * filter_statistics_dir (default 'Filter_Statistics'): directory where filter statistics (such as RMSE, ESS,...) are saved
                 * model_states_dir (default 'Model_States_Repository'): directory where model-states-like objects (including ensemble) are saved
                 * observations_dir (default 'Observations_Rpository'): directory where observations and observations operators are saved
@@ -2236,25 +2224,27 @@ class ETKF(EnKF):
                         - 'pickle': python pickled objects,
                         - 'txt' or 'ascii': text files
                 * file_output_separate_files (default True): save all results to a single or multiple files
-                
+
     Returns:
         None
-        
+
     """
     #
-    _def_local_filter_configs = EnKF._def_local_filter_configs
-    #
-    _local_def_output_configs = EnKF._local_def_output_configs
+    _def_local_filter_configs = EnKF._def_local_filter_configs.copy()
+    _local_def_output_configs = EnKF._local_def_output_configs.copy()
     #
     _supported_prior_distribution = EnKF._supported_prior_distribution
     #
-    
+
     def __init__(self, filter_configs=None, output_configs=None):
-        
-        _filter_name = "ETKF"
-        self._def_local_filter_configs.update(dict(filter_name=_filter_name))
-        self._local_def_output_configs.update(dict(file_output_file_name_prefix='ETKF_results'))
-        #    
+
+        ETKF._def_local_filter_configs.update(dict(filter_name="ETKF"))
+        ETKF._local_def_output_configs.update(dict(file_output_file_name_prefix='ETKF_results'))
+        #
+        # aggregate configurations, and attach filter_configs, output_configs to the filter object.
+        filter_configs = utility.aggregate_configurations(filter_configs, ETKF._def_local_filter_configs)
+        output_configs = utility.aggregate_configurations(output_configs, ETKF._local_def_output_configs)
+
         class OldStyle: pass
         if issubclass(OldStyle().__class__, object):
             # object-inherited class
@@ -2262,24 +2252,28 @@ class ETKF(EnKF):
         else:
             # old-stype class
             super(ETKF, self).__init__(filter_configs=filter_configs, output_configs=output_configs)
-            
+
         # EnKF.__init__(self, filter_configs, output_configs)
         #
-            
+
     #
     def analysis(self, all_to_numpy=True):
         """
         Analysis step:
-        
+
         Args:
             all_to_numpy (default False): bool,
                 convert all data structures to Numpy and re-place results into target structures only in the end.
-            
+
         Returns:
             None. Only self.filter_configs is updated.
-            
+
         """
-        # 
+        # Check if the forecast ensemble should be inflated;
+        f = self.filter_configs['forecast_inflation_factor']
+        utility.inflate_ensemble(self.filter_configs['forecast_ensemble'], f)
+
+        #
         if all_to_numpy:
             # get the forecast state as the mean of the forecast ensemble. Will not be used for GMM!
             state_size = self.model.state_size()
@@ -2290,7 +2284,7 @@ class ETKF(EnKF):
             forecast_ensemble = self.filter_configs['forecast_ensemble']
             forecast_state = utility.ensemble_mean(forecast_ensemble)
             ensemble_size = self.sample_size
-            
+
             # observation error covariance matrix
             R = self.model.observation_error_model.R.get_numpy_array()
             try:
@@ -2303,54 +2297,54 @@ class ETKF(EnKF):
                 # forecast_ensemble[:, ens_ind] = forecast_ensemble[ens_ind][:]
                 forecast_ensemble_np[:, ens_ind] = forecast_ensemble[ens_ind].get_numpy_array()
             forecast_state_np = np.mean(forecast_ensemble_np, 1)
-            
+
             # get the measurements vector
             observation = self.filter_configs['observation'].get_numpy_array()
-            
+
             #
             # PREPARE for ASSIMILATION:
             # ---------------------------
-            
+
             # Model-observation of the forecast ensemble members:
             HE = np.empty((observation_size, ensemble_size))
             for ens_ind in xrange(ensemble_size):
                 HE[:, ens_ind] = self.model.evaluate_theoretical_observation(forecast_ensemble[ens_ind]).get_numpy_array()
             # Mean of forecasted observations:
             Hx = np.mean(HE, 1)
-            
+
             # Observation innovations:
             # obs_innovations = observation - Hx
             obs_innovations = observation - self.model.evaluate_theoretical_observation(forecast_state).get_numpy_array()
-            
+
             # observation covariance scaling factor
             rfactor = float(self.filter_configs['obs_covariance_scaling_factor'])
-            
+
             # Forecast Ensemble Anomalies matrix [forecast ensemble members - ensemble mean]
             A = forecast_ensemble_np
             for ens_ind in xrange(ensemble_size):
                 A[:, ens_ind] -= forecast_state_np
-            
+
             # Forecast Ensemble Observations Anomalies matrix [HE(e) - Hx], e = 1,2,..., ensemble_size
             HA = HE  # reuse --> in-place
             for ens_ind in xrange(ensemble_size):
                 HA[:, ens_ind] -= Hx
-            
+
             #
             # START ASSIMILATION:
             # ---------------------------
-            
-            # standardised innovation and ensemble anomalies 
+
+            # standardised innovation and ensemble anomalies
             # sqrtR_lu, sqrtR_piv = lu_factor( sqrtR )
             # s = obs_innovations / np.sqrt(ensemble_size-1)
             # s = lu_solve((sqrtR_lu, sqrtR_piv) , s)
             # S = np.empty_like(HA)
             # for ens_ind in xrange(ensemble_size):
             #     S[:, ens_ind] = (lu_solve((sqrtR_lu, sqrtR_piv) , HA[:, ens_ind])) / np.sqrt(ensemble_size-1)
-            # 
+            #
             sqrtR_inv = np.linalg.inv( sqrtR )
             s = sqrtR_inv.dot(obs_innovations) / np.sqrt(ensemble_size-1)
             S = sqrtR_inv.dot(HA) / np.sqrt(ensemble_size-1)
-            
+
             # Analysis is carried out based on the tpe of localization in what follows:
             #
             localize_covariances = self.filter_configs['localize_covariances']
@@ -2359,10 +2353,10 @@ class ETKF(EnKF):
                 M = np.dot(S.T, S)
                 M[np.diag_indices_from(M)] += 1.0
                 G = np.dot(np.linalg.inv(M), S.T)
-                
+
                 # Evaluate the Ensemble-Mean update:
                 ens_mean_update = np.dot(np.dot(A, G), s)  # dx
-                
+
                 # Evaluate Ensemble-Anomalies update:
                 if rfactor != 1.0:
                     # rescale S, and G
@@ -2370,12 +2364,12 @@ class ETKF(EnKF):
                     M = np.dot(S.T, S)
                     M[np.diag_indices_from(M)] += 1.0
                     G = np.dot(np.linalg.inv(M), S.T)
-                
+
                 else:
                     pass
                 # Now Evaluate A = A * (I - 0.5 * G * S):
                 A = np.dot(A, scipy.linalg.sqrtm(M))
-                
+
             else:
                 # Apply Localization based on the localization function:
                 localization_method = self.filter_configs['localization_method']
@@ -2385,24 +2379,24 @@ class ETKF(EnKF):
                 if re.match(r'\Acovariance(-|_)*filtering\Z', localization_method, re.IGNORECASE):
                     # Evaluate the Kalman gain matrix (with HPH^T, and PH^T localized based on the filter settings)
                     K = self._calc_Kalman_gain(A, HA)
-                    
+
                     # Evaluate the Ensemble-Mean update (dx):
                     ens_mean_update = np.dot(K, obs_innovations)
-                    
+
                     # Recalculate the Kalman gain with observation variances/covariances multiplied by rfactor
                     if rfactor != 1:
                         K = self._calc_Kalman_gain(A, HA, rfactor)
-                    
+
                     # Now Evaluate A = A + K * (D - HA):
-                    A -= 0.5 * K.dot(HA)                    
-                    
+                    A -= 0.5 * K.dot(HA)
+
                 elif re.match(r'\Alocal(-|_)*analysis\Z', localization_method, re.IGNORECASE):
                     raise NotImplementedError("TO BE UPDATED...")
                     # ens_mean_update np.empty(state_size)
                     # for state_ind in xrange(state_size):
                     #     # find local observation:
-                    
-                    pass                    
+
+                    pass
                     # # ------------------^^^^ TRANSLATE ^^^^-------------------
                     # Check 'assimilate.m' line 188
                     # for i = 1 : n
@@ -2411,29 +2405,29 @@ class ETKF(EnKF):
                     #     if ploc == 0
                     #         continue
                     #     end
-                    #     
+                    #
                     #     Sloc = S(localobs, :) .* repmat(coeffs, 1, m);
-                    #     
+                    #
                     #     M = inv(speye(m) + Sloc' * Sloc);
                     #     Gloc = M * Sloc';
-                    #     
+                    #
                     #     dx(i) = A(i, :) * Gloc * (s(localobs) .* coeffs);
-                    #     
+                    #
                     #     if rfactor ~= 1
                     #         Sloc = Sloc / sqrt(rfactor);
                     #         M = inv(speye(m) + Sloc' * Sloc);
                     #         Dloc = D(localobs, :) .* repmat(coeffs, 1, m);
                     #         A(i, :) = A(i, :) + A(i, :) * Gloc * (Dloc - Sloc);
                     #     end
-                    #     
+                    #
                     #     A(i, :) = A(i, :) - A(i, :) * 0.5 * Gloc * Sloc;
                     # end
                     # -------------------------------------
-                    
+
                 else:
                     print("Localization method '%s' is not Supported/Recognized!" % localization_method)
                     raise ValueError
-            
+
             # Inflate the ensemble if required; this is done by magnifying the matrix of ensemble-anomalies:
             inflation_fac=self.filter_configs['inflation_factor']
             if inflation_fac > 1.0:
@@ -2444,7 +2438,7 @@ class ETKF(EnKF):
                 #
                 if self._verbose:
                     print('inflated? : ', (analysis_ensemble[0][:]!=inflated_ensemble[0][:]).any())
-            
+
             # Now we are good to go; update the ensemble mean, and ensemble-anomalies using ens_mean_update, and A
             ens_mean_update_vec = self.model.state_vector()
             ens_mean_update_vec[:] = np.squeeze(ens_mean_update)
@@ -2464,7 +2458,7 @@ class ETKF(EnKF):
                 else:
                     print("analysis_ensemble type is not recognized!")
                     raise TypeError
-            
+
             if len(analysis_ensemble) == 0:
                 # Append analysis states
                 for ens_ind in xrange(ensemble_size):
@@ -2475,23 +2469,20 @@ class ETKF(EnKF):
                 # update analysis ensemble in place
                 for ens_ind in xrange(ensemble_size):
                     analysis_ensemble[ens_ind][:] = np.squeeze(A[:, ens_ind]) + analysis_mean_np
-            
+
             # Ensemble Rotation:
-            
-            
+
+
             # Update analysis ensemble and analysis state (average of the analysis_ensemble)
             self.filter_configs['analysis_ensemble'] = analysis_ensemble
 
             # Update the analysis_state in the filter_configs dictionary.
-            self.filter_configs['analysis_state'] = analysis_state
+            self.filter_configs['analysis_state'] = analysis_state.copy()
             #
         #
         else:
             raise NotImplementedError("To be implemented!")
-            
-            
-            
-    
+
 #
 #
 class LLSEnKF(FiltersBase):
@@ -2510,7 +2501,7 @@ class LLSEnKF(FiltersBase):
                          pages={634--642},
                          year={2003}
                          }
-    
+
     Args:
         model_object: a reference to the model object. Error statistics are loaded from the model object.
                       Forecast is carried out by calling time integrator attached to the model object.
@@ -2521,10 +2512,9 @@ class LLSEnKF(FiltersBase):
                                        (square-root) version of the filter implementation.
                         THIS IS MOVED TO THE CONFIGURATIONS DICTIONARY...
         filter_configs: a dictionary containing filter configurations.
-        
+
     """
-    _filter_name = "LLS-EnKF"
-    _def_local_filter_configs = dict(filter_name=_filter_name,
+    _def_local_filter_configs = dict(filter_name="LLS-EnKF",
                                      ensemble_size=None,
                                      analysis_ensemble=None,
                                      analysis_state=None,
@@ -2551,9 +2541,11 @@ class LLSEnKF(FiltersBase):
                                      )
 
     def __init__(self, filter_configs=None, output_configs=None):
-        
+
+        # aggregate configurations, and attach filter_configs, output_configs to the filter object.
         filter_configs = utility.aggregate_configurations(filter_configs, LLSEnKF._def_local_filter_configs)
         output_configs = utility.aggregate_configurations(output_configs, LLSEnKF._local_def_output_configs)
+
         FiltersBase.__init__(self, filter_configs=filter_configs, output_configs=output_configs)
     #
         # the following configuration are filter-specific.
@@ -2619,6 +2611,12 @@ class LLSEnKF(FiltersBase):
         """
         Analysis step:
         """
+        #
+        # Check if the forecast ensemble should be inflated;
+        f = self.filter_configs['forecast_inflation_factor']
+        utility.inflate_ensemble(self.filter_configs['forecast_ensemble'], f)
+
+        #
         # Check the filter type.
         filter_type = self._filter_type
         model = self.filter_configs['model']
@@ -2792,19 +2790,19 @@ class LLSEnKF(FiltersBase):
             out_dir: directory to put results in. The directory
         """
         raise NotImplementedError
-    
+
     #
     def read_cycle_results(self, output_dir, read_err_covars=False):
         """
         Read filtering results from file(s).
         Check the output directory first. If the directory does not exist, raise an IO error.
         If the directory, and files exist, Start retrieving the results properly
-        
+
         Args:
-            output_dir: directory where KF results are saved. 
+            output_dir: directory where KF results are saved.
                 We assume the structure is the same as the structure created by the KF implemented here
                 in 'save_cycle_results'.
-            
+
         Returns:
             reference_state:
             forecast_state:
@@ -2812,7 +2810,7 @@ class LLSEnKF(FiltersBase):
             observation:
             forecast_err_covar:
             analysis_err_covar:
-            
+
         """
         # TODO: To be written!
         raise NotImplementedError
@@ -2840,5 +2838,3 @@ class LLSEnKF(FiltersBase):
         n = ens1.size
         cov = (1.0/(n-1)) * np.sum((ens1-avg1)*(ens2-avg2))
         return cov
-
-

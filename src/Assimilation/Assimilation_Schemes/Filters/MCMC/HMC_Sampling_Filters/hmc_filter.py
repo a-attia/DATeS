@@ -24,14 +24,14 @@
     HMCFilter:
     ----------
     A class implementing the Hamiltonian/Hybrid Monte-Carlo Sampling family for filtering developed by Ahmed Attia, and Adrian Sandu.
-        - Publications:                                                                       
+        - Publications:
             + Ahmed Attia and Adrian Sandu (2015). A Hybrid Monte Carlo Sampling Filter for non-Gaussian Data Assimilation. AIMS Geosciences, 1(geosci-01-00041):41-78. http://www.aimspress.com/article/10.3934/geosci.2015.1.41
-                                                                                          
-    Momentum:                                                                             
+
+    Momentum:
     ---------
     A class implementing the functionalities of the synthetic momentum.
     The momentum variable P in the HMC context is an essential component of the sampling process.
-    Here we model it giving it all the necessary functionality to ease working with it.   
+    Here we model it giving it all the necessary functionality to ease working with it.
 """
 
 
@@ -47,9 +47,9 @@ from state_vector_base import StateVectorBase as StateVector  # for validation
 class HMCFilter(FiltersBase):
     """
     A class implementing the Hamiltonian/Hybrid Monte-Carlo Sampling family for filtering developed by Ahmed Attia, and Adrian Sandu (2015).
-    
+
     HMC filter constructor:
-    
+
     Args:
         filter_configs:  dict,
             A dictionary containing HMC filter configurations.
@@ -79,7 +79,7 @@ class HMCFilter(FiltersBase):
                     This is added to all variances, e.g. if some variances are below
                 * gmm_prior_settings: dict,
                     This is a configurations dictionary of the GMM approximation to the prior.
-                    This will be used only if the prior is assumed to be non-Gaussian, and better estimate is 
+                    This will be used only if the prior is assumed to be non-Gaussian, and better estimate is
                     needed, i.e. it is used only if 'prior_distribution' is set to 'GMM'.
                     The implementation in this case follows the cluster EnKF described by [cite].
                     The configurations supported are:
@@ -93,36 +93,36 @@ class HMCFilter(FiltersBase):
                        - localization_function ('gaspari-cohn'): the covariance localization function
                             'gaspari-cohn', 'gauss', etc.
                        - inf_criteria (default 'aic'): Model information selection criterion;
-                            Supported criteria: 
+                            Supported criteria:
                                 + 'aic': Akaike information criterion
                                 + 'bic': Bayesian information criterion
-                       - number_of_components (default None): The number of components in the GMM. 
-                            This overrides the inf_criteria and forces a specific number of components to be 
+                       - number_of_components (default None): The number of components in the GMM.
+                            This overrides the inf_criteria and forces a specific number of components to be
                             fitted by the EM algorithm.
-                       - min_number_of_components (default None): If not None, and number_of_components is 
-                            None, and a selection criterion is used for model selection, the number of 
+                       - min_number_of_components (default None): If not None, and number_of_components is
+                            None, and a selection criterion is used for model selection, the number of
                             components is forced to be at least equal to the min_number_of_components.
-                       - max_number_of_components (default None): If not None, and number_of_components is 
-                            None, and a selection criterion is used for model selection, the number of 
+                       - max_number_of_components (default None): If not None, and number_of_components is
+                            None, and a selection criterion is used for model selection, the number of
                             components is forced to be at most equal to the max_number_of_components.
                        - min_number_of_points_per_component (default 1): If number_of_components is None,
-                            and a selection criterion is used for model selection, the number of 
+                            and a selection criterion is used for model selection, the number of
                             components is decreased untill the number of sample points under each component
                             is at least equal to the min_number_of_points_per_component.
-                       - invert_uncertainty_param (default True): From Covariances obtain Precisions, and 
+                       - invert_uncertainty_param (default True): From Covariances obtain Precisions, and
                             vice-versa.
                        - approximate_covariances_from_comp (default False): use parameters/statistics of the
                             mixture components to evaluate/approximate the joint mean, and covariance matrix
                             of the ensemble.
                             If False, the ensemble itself is used to evaluate the joint mean, and covariances.
-                       - use_oringinal_hmc_for_one_comp (default False): Fall back to originial HMC if 
+                       - use_oringinal_hmc_for_one_comp (default False): Fall back to originial HMC if
                             one mixture component (Gaussian prior) is detected in the ensemble.
-                       - initialize_chain_strategy (default 'forecast_mean'): strategy for initializing the 
+                       - initialize_chain_strategy (default 'forecast_mean'): strategy for initializing the
                             Markov chain.
                             Supported initialization strategies:
                                 + 'highest_weight': initialize the chain to the mean of the mixture component
                                     with highst mixing weight.
-                                + 'forecast_mean': initialize the chain to the (joint) ensemble mean.                         
+                                + 'forecast_mean': initialize the chain to the (joint) ensemble mean.
                 * ensemble_size (default None): size of the ensemble; this has to be set e.g. in a driver
                 * analysis_ensemble (default None): a placeholder of the analysis ensemble.
                     All ensembles are represented by list of model.state_vector objects
@@ -133,15 +133,15 @@ class HMCFilter(FiltersBase):
                 * forecast_state (default None): model.state_vector object containing the forecast state.
                 * filter_statistics: dict,
                     A dictionary containing updatable filter statistics. This will be updated by the filter.
-                
+
         output_configs: dict,
             A dictionary containing screen/file output configurations.
             Supported configuarations:
                 * scr_output (default False): Output results to screen on/off switch
                 * file_output (default True): Save results to file on/off switch
-                * file_output_dir (default 'Assimilation_Results'): relative path (to DATeS root directory) 
+                * file_output_dir (default 'Assimilation_Results'): relative path (to DATeS root directory)
                     of the directory to output results in
-                
+
                 * filter_statistics_dir (default 'Filter_Statistics'): directory where filter statistics (such as RMSE, ESS,...) are saved
                 * model_states_dir (default 'Model_States_Repository'): directory where model-states-like objects (including ensemble) are saved
                 * observations_dir (default 'Observations_Rpository'): directory where observations and observations operators are saved
@@ -155,10 +155,10 @@ class HMCFilter(FiltersBase):
                         - 'pickle': python pickled objects,
                         - 'txt' or 'ascii': text files
                 * file_output_separate_files (default True): save all results to a single or multiple files
-                                  
+
     Returns:
         None
-     
+
     """
     #
     _filter_name = "HMC-F"
@@ -187,7 +187,7 @@ class HMCFilter(FiltersBase):
                                                              approximate_covariances_from_comp=False,
                                                              use_oringinal_hmc_for_one_comp=False,
                                                              initialize_chain_strategy='forecast_mean'
-                                                             ),                                     
+                                                             ),
                                      chain_parameters=dict(Initial_state=None,
                                                            Symplectic_integrator='3-stage',
                                                            Hamiltonian_num_steps=30,
@@ -216,7 +216,7 @@ class HMCFilter(FiltersBase):
                                                             rejection_rate=None
                                                             )
                                      )
-    _local_def_output_configs = dict(scr_output=True, 
+    _local_def_output_configs = dict(scr_output=True,
                                      file_output=False,
                                      filter_statistics_dir='Filter_Statistics',
                                      model_states_dir='Model_States_Repository',
@@ -230,15 +230,15 @@ class HMCFilter(FiltersBase):
     _supported_tempering_schemes = ['simulated-annealing', 'parallel-tempering', 'equi-energy']
     _supported_prior_distribution = ['gaussian', 'normal', 'gmm', 'gaussian-mixture', 'gaussian_mixture']
 
-    # 
+    #
     def __init__(self, filter_configs=None, output_configs=None):
-        
+
         filter_configs = utility.aggregate_configurations(filter_configs, HMCFilter._def_local_filter_configs)
         output_configs = utility.aggregate_configurations(output_configs, HMCFilter._local_def_output_configs)
         FiltersBase.__init__(self, filter_configs=filter_configs, output_configs=output_configs)
         #
         self.model = self.filter_configs['model']
-        # the following configuration are filter-specific.        
+        # the following configuration are filter-specific.
         # validate the ensemble size
         if self.filter_configs['ensemble_size'] is None:
             try:
@@ -353,12 +353,12 @@ class HMCFilter(FiltersBase):
         It should be updated at the beginning of each assimilation cycle for proper and consistent performance.
         The mass matrix here is assumed to be always diagonal. The values on the diagonal are set based on the
         strategy given in self.mass_matrix_strategy.
-        
+
         Args:
-                  
+
         Returns:
             None
-           
+
         """
         # create a momentum object with a predefined mass matrix based on filter parameters.
         if self.mass_matrix_strategy == 'identity':
@@ -387,12 +387,12 @@ class HMCFilter(FiltersBase):
             #
         return momentum_obj
         #
-    
+
     #
     def update_momentum(self, mass_matrix=None, mass_matrix_shape=None, dimension=None, model=None, diag_val_thresh=1e-15):
         """
         Update the statistics of the momentum object.
-        
+
         Args:
             mass_matrix: scalar, one-D or 2-D numpy array, or a model.state_matrix object
                 - if it is a scaler, it is used to fill the diagonal of a diagonal mass matrix
@@ -403,12 +403,12 @@ class HMCFilter(FiltersBase):
                 This should really be 'diagonal'
             dimension: space dimension of the momentum variable
             model: model object
-            diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on 
+            diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on
                 finding the mass matrix inverse.
-                  
+
         Returns:
             None
-        
+
         """
         # Check the input arguments and retrieve the defaults for Nones
         if model is None:
@@ -433,7 +433,7 @@ class HMCFilter(FiltersBase):
                 except (AttributeError, ValueError, NameError):
                     self.generate_prior_info()
                     prior_variances = self.prior_variances
-                # The values on the diagonal of the mass matrix can't be very small to avoid overflow when inverting the mass matrix                
+                # The values on the diagonal of the mass matrix can't be very small to avoid overflow when inverting the mass matrix
                 if isinstance(prior_variances, StateVector):
                     # slice it to convert to numpy array if not
                     prior_variances = prior_variances.get_numpy_array()
@@ -461,14 +461,14 @@ class HMCFilter(FiltersBase):
         """
         Apply the filtering step. Forecast, then Analysis...
         All arguments are accessed and updated in the configurations dictionary.
-        
+
         Args:
             update_reference (default True): bool,
                 A flag to decide whether to update the reference state in the filter or not.
-                  
+
         Returns:
             None
-            
+
         """
         # Call basic functionality from the parent class:
         FiltersBase.filtering_cycle(self, update_reference=update_reference)
@@ -479,19 +479,19 @@ class HMCFilter(FiltersBase):
     #
     def forecast(self):
         """
-        Forecast step of the filter. 
-        Use the model object to propagate each ensemble member to the end of the given checkpoints to 
-        produce and ensemble of forecasts. 
+        Forecast step of the filter.
+        Use the model object to propagate each ensemble member to the end of the given checkpoints to
+        produce and ensemble of forecasts.
         Filter configurations dictionary is updated with the new results.
         If the prior is assumed to be a Gaussian, we are all set, otherwise we have to estimate it's
         parameters based on the provided forecast ensemble (e.g. in the case of 'prior_distribution' = GMM ).
-        
+
         Args:
             None
-                  
+
         Returns:
             None
-        
+
         """
         # generate the forecast states
         analysis_ensemble = list(self.filter_configs['analysis_ensemble'])
@@ -508,7 +508,7 @@ class HMCFilter(FiltersBase):
         # Obtain information about the prior distribution from the forecast ensemble
         # Covariance localization and hybridization are carried out if requested
         self.generate_prior_info()
-        
+
         # If the momentum parameters are not yet initialized, then do so.
         # This can be the case if the analysis is conducted before the forecast, and the momentum
         # is not initialized in the filter constructor.
@@ -520,22 +520,22 @@ class HMCFilter(FiltersBase):
             print("The current momentum is not an instance of the right object!")
             raise ValueError()
             #
-            
+
     #
     def generate_prior_info(self):
         """
         Generate the statistics of the approximation of the prior distribution.
-            - if the prior is Gaussian, the covariance (ensemble/hybrid) matrix is generated and 
+            - if the prior is Gaussian, the covariance (ensemble/hybrid) matrix is generated and
               optionally localized.
-            - if the prior is GMM, the parameters of the GMM (weights, means, covariances) are generated 
-              based on the gmm_prior_settings. 
-        
+            - if the prior is GMM, the parameters of the GMM (weights, means, covariances) are generated
+              based on the gmm_prior_settings.
+
         Args:
             None
-                  
+
         Returns:
             None
-        
+
         """
         # Read the forecast ensemble...
         forecast_ensemble = self.filter_configs['forecast_ensemble']
@@ -559,7 +559,7 @@ class HMCFilter(FiltersBase):
             self.filter_configs['forecast_ensemble'] = inflated_ensemble
         else:
             pass
-        
+
         #
         prior_variances_threshold=self.filter_configs['prior_variances_threshold']
         #
@@ -573,7 +573,7 @@ class HMCFilter(FiltersBase):
                 balance_factor = self._def_local_filter_configs['hybrid_background_coeff']
             #
             fac = balance_factor  # this multiplies the modeled Background error covariance matrix
-            if 0.0 < fac < 1.0: 
+            if 0.0 < fac < 1.0:
                 if self._verbose:
                     print("Hyberidizing the background error covariance matrix")
                 model_covariances = self.model.background_error_model.B.copy().scale(fac)
@@ -590,7 +590,7 @@ class HMCFilter(FiltersBase):
                        )
                 raise ValueError
             #
-                                
+
             # Apply localization on the full background error covariance matrix.
             if self.filter_configs['localize_covariances']:
                 if self._verbose:
@@ -601,7 +601,7 @@ class HMCFilter(FiltersBase):
                     # localization radius seems legit; apply covariance localization now
                     try:
                         model_covariances = self.model.apply_state_covariance_localization(model_covariances,
-                                                                                            localization_function=loc_func, 
+                                                                                            localization_function=loc_func,
                                                                                             localization_radius=loc_radius
                                                                                             )
                     except(TypeError):
@@ -622,17 +622,17 @@ class HMCFilter(FiltersBase):
             if self._verbose:
                 print("Forecast covariances:", model_covariances)
                 print("Prior Variances", self.prior_variances)
-            
+
             #
             # print("******************* Attempting to do LU decomposition ******************")
             #
             # lu_and_piv = model_covariances.lu_factor()  # this returns two 2D numpy arrays
             lu, piv = lu_factor(model_covariances.get_numpy_array())  # this returns two 2D numpy arrays
-            
-            # Cleanup = priovious forecast statistics if they exist 
+
+            # Cleanup = priovious forecast statistics if they exist
             # (e.g. due to switching from GMM to Gaussian prior if one compoenent is detected)
             self.prior_distribution_statistics = dict()
-            
+
             # Avoid the following first step if 'B' is not required in full in later calculations
             self.prior_distribution_statistics['B'] = model_covariances
             self.prior_distribution_statistics['B_lu'] = lu
@@ -683,12 +683,12 @@ class HMCFilter(FiltersBase):
                 self.generate_prior_info()
                 return
                 # raise ValueError
-            else: 
+            else:
                 #
-                # Cleanup = priovious forecast statistics if they exist 
+                # Cleanup = priovious forecast statistics if they exist
                 # (e.g. due to switching from GMM to Gaussian prior if one compoenent is detected)
                 self.prior_distribution_statistics = dict()
-                
+
                 if isinstance(gmm_weights, np.ndarray):
                     gmm_num_components = gmm_weights.size
                 else:
@@ -699,7 +699,7 @@ class HMCFilter(FiltersBase):
                     print('gmm_weights', gmm_weights)
                     print("GMM number of components is nonsense!")
                     raise ValueError()
-                
+
                 #
                 if gmm_num_components > 1:
                     gmm_weights = np.asarray(gmm_weights)
@@ -861,7 +861,7 @@ class HMCFilter(FiltersBase):
                                 self.prior_variances = np.var(forecast_ensemble_numpy, 0)
                                 self.prior_mean = joint_mean
                     self.prior_variances_list = variances_list
-                    
+
                 #
                 elif gmm_optimal_covar_type == 'tied':
                     if gmm_covariances is None:
@@ -871,7 +871,7 @@ class HMCFilter(FiltersBase):
                     else:
                         covariances_matrix = self.model.state_matrix()
                         covariances_matrix[:, :] = gmm_covariances[:, :].copy()
-                        # 
+                        #
                         # validate variances:
                         model_covariances_diag = covariances_matrix.diag()
                         tiny_covar_indices =  model_covariances_diag < prior_variances_threshold
@@ -889,7 +889,7 @@ class HMCFilter(FiltersBase):
                                 # localization radius seems legit; apply covariance localization now
                                 try:
                                     covariances_matrix = self.model.apply_state_covariance_localization(covariances_matrix,
-                                                                                                         localization_function=loc_func, 
+                                                                                                         localization_function=loc_func,
                                                                                                          localization_radius=loc_radius
                                                                                                          )
                                 except(TypeError):
@@ -961,7 +961,7 @@ class HMCFilter(FiltersBase):
                                 # localization radius seems legit; apply covariance localization now
                                 try:
                                     precisions_matrix = self.model.apply_state_covariance_localization(precisions_matrix.inv(),
-                                                                                                        localization_function=loc_func, 
+                                                                                                        localization_function=loc_func,
                                                                                                         localization_radius=loc_radius
                                                                                                         ).inv()  # quite clear this is bad
                                 except(TypeError):
@@ -972,9 +972,9 @@ class HMCFilter(FiltersBase):
                                     # Try the localization with default settings in the model
                                     precisions_matrix = self.model.apply_state_covariance_localization(precisions_matrix.inv()).inv()
                             #
-                            
+
                         self.prior_distribution_statistics['gmm_precisions'] = precisions_matrix
-                        
+
                         # calculate covariance_det_log if necessary
                         if calculate_det_log:
                             # Evaluate and replicate the logarithm of the covariances matrix's determinant for all components.
@@ -1017,7 +1017,7 @@ class HMCFilter(FiltersBase):
                                 joint_mean[:] = np.mean(forecast_ensemble_numpy, 0)
                                 self.prior_variances = np.var(forecast_ensemble_numpy, 0)
                                 self.prior_mean = joint_mean
-                    self.prior_variances_list = [prior_variances] 
+                    self.prior_variances_list = [prior_variances]
 
                 #
                 elif gmm_optimal_covar_type == 'full':
@@ -1150,9 +1150,9 @@ class HMCFilter(FiltersBase):
                                 joint_mean[:] = np.mean(forecast_ensemble_numpy, 0)
                                 self.prior_variances = np.var(forecast_ensemble_numpy, 0)
                                 self.prior_mean = joint_mean
-                    
+
                     self.prior_variances_list = variances_list
-                    
+
                 #
                 else:
                     print("This is unexpected!. optimal_covar_type = '%s' " % gmm_optimal_covar_type)
@@ -1177,13 +1177,13 @@ class HMCFilter(FiltersBase):
     def analysis(self):
         """
         Analysis step.
-        
+
         Args:
-        
+
         Returns:
             chain_diagnostics: a dictionary containing the diagnostics of the chain such as acceptance rate, and
                 effective sample size, etc.
-            
+
         """
         #
         # get the forecast state as the mean of the forecast ensemble. Will not be used for GMM!
@@ -1228,8 +1228,8 @@ class HMCFilter(FiltersBase):
         # TODO:     2- No-U-Turn: _nuts_hmc_produce_ensemble
         # TODO:     3- Riemannian HMC: _rm_hmc_produce_ensemble
         # TODO:     4- My new HMC with automatic adjustment of parameters
-        
-        # 
+
+        #
         analysis_ensemble, chain_diagnostics = self._hmc_produce_ensemble(initial_state=initial_state, verbose=self._verbose)
 
         # inflation of the analysis ensemble can be considered with MultiChain MCMC sampler if small steps are taken
@@ -1250,10 +1250,10 @@ class HMCFilter(FiltersBase):
             self.filter_configs['analysis_ensemble'] = inflated_ensemble
         else:
             pass
-            
+
         # Update the analysis ensemble in the filter_configs
         self.filter_configs['analysis_ensemble'] = analysis_ensemble  # list reconstruction processes copying
-        
+
         # update analysis_state
         self.filter_configs['analysis_state'] = utility.ensemble_mean(self.filter_configs['analysis_ensemble'])
         #
@@ -1267,7 +1267,7 @@ class HMCFilter(FiltersBase):
             self.filter_configs['prior_distribution'] = 'gmm'
         else:
             self.switched_to_Gaussian_prior = False
-        
+
         # Add chain diagnostics to the output_configs dictionary for proper outputting:
         self.output_configs['filter_statistics'].update({'chain_diagnostics':chain_diagnostics})
         #
@@ -1281,18 +1281,18 @@ class HMCFilter(FiltersBase):
         Use HMC sampling scheme to construct the Markov chain and collect ensembles from the stationary distribution.
         This is the function you should call first to generate the ensemble, everything else is called/controlled by
         this method.
-        
+
         Args:
             initial_state: state (position) used to initialize the Markov chain
-            analysis_ensemble_in (default None): an analysis ensemble (list of model.state_vector objects) 
+            analysis_ensemble_in (default None): an analysis ensemble (list of model.state_vector objects)
                 that is updated by the collected ensemble (in place) instead of creating a new list.
             verbose (default False): can be used for extra on-screen printing while debugging, and testing
-            
+
         Returns:
             analysis_ensemble: the samples collected by the HMC sampler from the posterior distribution
             chain_diagnostics: a dictionary containing the diagnostics of the chain such as acceptance rate, and
                 effective sample size, etc.
-            
+
         """
         # Collect all required parameters:
         # Check the initial state and initialize a placeholder for the proposed state
@@ -1309,7 +1309,7 @@ class HMCFilter(FiltersBase):
                     print("Chain initialization policy is not recognized. \n"
                                      "You have to pass on of the values:\n %s" % repr(initialize_chain_strategies))
                     raise ValueError()
-            
+
             if initialize_chain_strategy == 'forecast_mean':
                 try:
                     initial_state = self.prior_mean.copy()
@@ -1387,7 +1387,7 @@ class HMCFilter(FiltersBase):
                 acceptance_probabilities = []
                 uniform_random_numbers = []
                 #
-                
+
                 # start constructing the chain(s)
                 burn_in_steps = self.chain_parameters['burn_in_steps']
                 current_state = initial_state.copy()
@@ -1396,16 +1396,16 @@ class HMCFilter(FiltersBase):
                     # (replace the old one... This may be hard if diagnostic tools are used)
                     # generate a fresh synthetic momentum vector. I use the place holder to avoid recreating state vectors
                     current_momentum = self._momentum.generate_momentum(momentum_vec=current_momentum)
-                        
+
                     try:
                         proposed_state, proposed_momentum = self._hmc_propose_state(current_state=current_state,
                                                                                     current_momentum=current_momentum)
-                        
+
                         traj = self.model.integrate_state(initial_state=proposed_state.copy(),
                                                  checkpoints=self.filter_configs['timespan'])
                         # print(">>>>>>>==================>>>>>>>. CURRENT_RMSE", utility.calculate_rmse(current_state, traj[-1]))
                         # print(">>>>>>>==================>>>>>>>. proposal_RMSE", utility.calculate_rmse(proposed_state, traj[-1]))
-                                               
+
                         # add current_state to the ensemble as it is the most updated membe
                         accept_proposal, energy_loss, a_n, u_n = self._hmc_MH_accept_reject(current_state=current_state,
                                                                                             proposed_state=proposed_state,
@@ -1415,16 +1415,16 @@ class HMCFilter(FiltersBase):
                                                                                             )
                     except(ValueError):
                         accept_proposal, energy_loss, a_n, u_n = False, 0, 0, 1
-                    
+
                     # save probabilities for chain diagnostics evaluation
                     acceptance_probabilities.append(a_n)
-                    uniform_random_numbers.append(u_n)  
+                    uniform_random_numbers.append(u_n)
                     #
                     if accept_proposal:
                         acceptance_flags.append(1)
                         if verbose:
                             print('Burning step [%d]: J=%f' % (burn_ind, self._hmc_total_energy(proposed_state, proposed_momentum)))
-                        current_state = proposed_state.copy()  # Do we need to copy?                        
+                        current_state = proposed_state.copy()  # Do we need to copy?
                     else:
                         acceptance_flags.append(0)
                         # do nothing, unless we decide later to keep all or some of the burned states, may be for diagnostics or so!
@@ -1459,10 +1459,10 @@ class HMCFilter(FiltersBase):
                                                                                             )
                     except(ValueError):
                         accept_proposal, energy_loss, a_n, u_n = False, 0, 0, 1
-                    
+
                     # save probabilities for chain diagnostics evaluation
                     acceptance_probabilities.append(a_n)
-                    uniform_random_numbers.append(u_n)  
+                    uniform_random_numbers.append(u_n)
                     #
                     if accept_proposal:
                         acceptance_flags.append(1)
@@ -1475,13 +1475,13 @@ class HMCFilter(FiltersBase):
                         acceptance_flags.append(0)
                         # do nothing, unless we decide later to keep all or some of the thinning states, may be for diagnostics or so!
                         pass
-                    
+
                 # add current_state to the ensemble as it is the most updated membe
-                
+
                 if append_members:
                     analysis_ensemble.append(current_state)  # append already copies the object and add reference to it.
                 else:
-                    analysis_ensemble[ens_ind][:] = current_state[:].copy()  # same. no need to copy.                
+                    analysis_ensemble[ens_ind][:] = current_state[:].copy()  # same. no need to copy.
         #
         if self._verbose:
             liner = "--."*30
@@ -1494,7 +1494,7 @@ class HMCFilter(FiltersBase):
             print("analysis_state:", utility.ensemble_mean(analysis_ensemble)[100:200])
             print("Prior Variances", self.prior_variances)
             print("\nNow return...\n%s\n" % liner)
-            
+
         # prepare chain statistics and diagnostic measures to be returned:
         acceptance_rate = float(np.asarray(acceptance_flags).sum()) / len(acceptance_flags) * 100.0
         rejection_rate = (100.0 - acceptance_rate)
@@ -1504,32 +1504,32 @@ class HMCFilter(FiltersBase):
                                  acceptance_flags=acceptance_flags,
                                  uniform_random_numbers=uniform_random_numbers
                                  )
-        
+
         # return the collected ensembles, and chain diagnostics.
         # print('first member test', isinstance(analysis_ensemble[0], np.ndarray))
         return analysis_ensemble, chain_diagnostics
         #
-    
+
     #
     def _hmc_MH_accept_reject(self, current_state, current_momentum, proposed_state, proposed_momentum, verbose=False):
         """
         Metropolis-Hastings accept/reject criterion based on loss of energy between current and proposed states
         proposed_state, proposed_momentum are the result of forward propagation of current_state, current_momentum
         using the symplectic integrator
-        
+
         Args:
             current_state: current (position) state of the chain
             current_momentum: current (momentum) state of the chain
             proposed_state: proposed (position) state of the chain
             proposed_momentum: current (momentum) state of the chain
             verbose (default False): can be used for extra on-screen printing while debugging, and testing
-            
+
         Returns:
             accept_state: True/False, whether to accept the proposed state/momentum or reject them
             energy_loss: the difference between total energy of the proposed and the current pair
             a_n: Metropolis-Hastings (MH) acceptance probability
             u_n: the uniform random number compared to a_n to accept/reject the sate (MH)
-            
+
         """
         symplectic_integrator = self.symplectic_integrator.lower()
         #
@@ -1562,20 +1562,20 @@ class HMCFilter(FiltersBase):
         #
         return accept_state, energy_loss, a_n, u_n
         #
-    
+
     #
     def _hmc_total_energy(self, current_state, current_momentum):
         """
         Evaluate the total energy function (the Hamiltonian) for a given position/momentum pair
-        Total Energy: Kinetic + Potential energy 
-        
+        Total Energy: Kinetic + Potential energy
+
         Args:
             current_state: current (position) state of the chain
             current_momentum: current (momentum) state of the chain
-            
+
         Returns:
             total_energy: Kinetic + Potential energy of the passed position/momentum pair
-            
+
         """
         potential_energy = self._hmc_potential_energy_value(current_state)
         kinetic_energy = self._momentum.evaluate_kinetic_energy(current_momentum)
@@ -1591,16 +1591,16 @@ class HMCFilter(FiltersBase):
         This generally means: build a full Hamiltonian Trajectory.
         If proposed_state is not None, it will be updated, otherwise a new object of the same type as current_state
         will be created and returned.
-        
+
         Args:
             current_state: current (position) state of the chain
             current_momentum: current (momentum) state of the chain
-            
+
         Returns:
             proposed_state: position variable at the end of the Hamiltonian trajectory
             proposed_momentum: momentum variable at the end of the Hamiltonian trajectory
-            
-                proposed_state, proposed_momentum are the result of forward propagation of 
+
+                proposed_state, proposed_momentum are the result of forward propagation of
                 current_state, current_momentum using the symplectic integrator
         """
         # generate a momentum vector if none is passed
@@ -1619,20 +1619,20 @@ class HMCFilter(FiltersBase):
         Given the current tuple in phase-space (current_state, current_momentum) construct a Hamiltonian trajectory and
         return the last state and momentum as proposed_state and proposed_momentum.
         Make sure the current state is not altered.
-        
+
         Args:
             current_state: current (position) state of the chain
             current_momentum: current (momentum) state of the chain
-            perturb_step_size (default True): add random perturbation to the pseudo-step size of the symplectic 
+            perturb_step_size (default True): add random perturbation to the pseudo-step size of the symplectic
                 integrator to reduce independence of the results on the specific choice of the step size.
-        
+
         Returns:
             proposed_state: position variable at the end of the Hamiltonian trajectory
             proposed_momentum: momentum variable at the end of the Hamiltonian trajectory
-            
-                proposed_state, proposed_momentum are the result of forward propagation of 
+
+                proposed_state, proposed_momentum are the result of forward propagation of
                 current_state, current_momentum using the symplectic integrator
-            
+
         """
         # 1- Retrieve the symplectic integrator name,
         symplectic_integrator = self.symplectic_integrator
@@ -1697,15 +1697,15 @@ class HMCFilter(FiltersBase):
                 #
                 dj = self._hmc_potential_energy_gradient(proposed_state)
                 proposed_momentum = proposed_momentum.axpy(-b1*h, dj)
-                #                
-                
+                #
+
                 tmp_momentum = self._momentum.inv_mass_mat_prod_momentum(proposed_momentum, in_place=False)
                 proposed_state = proposed_state.axpy(a2*h, tmp_momentum)
                 #
                 dj = self._hmc_potential_energy_gradient(proposed_state)
                 proposed_momentum = proposed_momentum.axpy(-b2*h, dj)
                 #
-                
+
                 tmp_momentum = self._momentum.inv_mass_mat_prod_momentum(proposed_momentum, in_place=False)
                 proposed_state = proposed_state.axpy(a2*h, tmp_momentum)
                 #
@@ -1714,7 +1714,7 @@ class HMCFilter(FiltersBase):
                 #
                 tmp_momentum = self._momentum.inv_mass_mat_prod_momentum(proposed_momentum, in_place=False)
                 proposed_state = proposed_state.axpy((a1*h), tmp_momentum)
-                
+
         #
         elif symplectic_integrator == '4-stage':
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ #
@@ -1767,34 +1767,34 @@ class HMCFilter(FiltersBase):
     def _hmc_potential_energy(self, current_state):
         """
         Evaluate the potential energy value and gradient
-        
+
         Args:
             current_state: current (position) state of the chain
-        
+
         Returns:
             potential_energy_value: value of the potential energy function at the given position,
                 this is the negative-log of the target posterior
             potential_energy_gradient: gradient of the potential energy function
-                
+
         """
         potential_energy_value = self._hmc_potential_energy_value(current_state)
         potential_energy_gradient = self._hmc_potential_energy_gradient(current_state)
         #
         return potential_energy_value, potential_energy_gradient
         #
-    
+
     #
     def _hmc_potential_energy_value(self, current_state):
         """
         Evaluate the potential energy value only
-        
+
         Args:
             current_state: current (position) state of the chain
-            
+
         Returns:
             potential_energy_value: value of the potential energy function at the given position,
                 this is the negative-log of the target posterior
-            
+
         """
         # Retrieve the observation vector if obs is None
         observation = self.filter_configs['observation']
@@ -1875,14 +1875,14 @@ class HMCFilter(FiltersBase):
         Evaluate the forecast terms in the potential energy function formulation in the case of GMM prior.
         These are the terms other than the observation/innovation term.
         Two of them include LOVELY logarithmic terms, this is why I named it like that.
-        
+
         Args:
             current_state: current (position) state of the chain
-            
+
         Returns:
             potential_energy_value: scalar,
                 the value of the forecast terms int the posterior negative logarithm (potential energy function).
-            
+
         """
         # Extract GMM components for ease of access
         gmm_optimal_covar_type = self.prior_distribution_statistics['gmm_optimal_covar_type']
@@ -2001,7 +2001,7 @@ class HMCFilter(FiltersBase):
 
         # Now evaluate the forecast term and return
         forecast_term_val -= np.log(1 + sum_val)
-        # 
+        #
         return forecast_term_val
         #
 
@@ -2009,17 +2009,17 @@ class HMCFilter(FiltersBase):
     def _hmc_potential_energy_gradient(self, current_state, fd_validation=False, debug=False):
         """
         Evaluate the potential energy gradient only
-        
+
         Args:
             current_state: current (position) state of the chain
-            fd_validation (default False): use finiti difference approximation of the gradient to validate the 
+            fd_validation (default False): use finiti difference approximation of the gradient to validate the
                 calculated gradient.
             debug (default False): used to check the entries of the calculated gradient for invalid (inf) values
-        
+
         Returns:
             potential_energy_gradient: the gradient of the potential energy function at the given position,
                 this is the derivative of the negative-log of the target posterior.
-            
+
         """
         observation = self.filter_configs['observation']
         #
@@ -2042,7 +2042,7 @@ class HMCFilter(FiltersBase):
             model_observation = self.model.evaluate_theoretical_observation(current_state)
             innovations = model_observation.axpy(-1.0, observation)
             observation_term = self.model.observation_error_model.error_covariances_inv_prod_vec(innovations)
-            # 
+            #
             # 2- Background term
             lu, piv = self.prior_distribution_statistics['B_lu'], self.prior_distribution_statistics['B_piv']
             deviations = current_state.axpy(-1.0, forecast_state, in_place=False)
@@ -2053,7 +2053,7 @@ class HMCFilter(FiltersBase):
             potential_energy_gradient = background_term.add(self.model.observation_operator_Jacobian_T_prod_vec(current_state, observation_term))
         #
         elif self.prior_distribution in ['gmm', 'gaussian_mixture', 'gaussian-mixture']:
-            # 
+            #
             # 1- Observation/Innovation term
             model_observation = self.model.evaluate_theoretical_observation(current_state)
             innovations = model_observation.axpy(-1.0, observation)  # innovations = H(x) - y
@@ -2075,7 +2075,7 @@ class HMCFilter(FiltersBase):
         # ----------------------------------------------- #
         if fd_validation:
             print('current_state', current_state)
-            
+
             eps = 1e-5
             fd_grad = potential_energy_gradient.copy()
             fd_grad[:] = 0
@@ -2111,10 +2111,10 @@ class HMCFilter(FiltersBase):
         """
         Evaluate the gradient of the forecast terms in the potential energy function formulation in the case of GMM prior.
         :return: a state_vector: derivative of the forecast term with respect to hte passed current_state
-        
+
         Args:
             current_state: current (position) state of the chain
-        
+
         Returns:
             potential_energy_gradient: model.state_vector,
                 the derivative of the forecast terms in the posterior negative logarithm (potential energy function).
@@ -2245,7 +2245,7 @@ class HMCFilter(FiltersBase):
         for comp_ind in xrange(gmm_num_components-1):
             other_ind = rest_indices[comp_ind]
             sum_term_val = sum_terms[other_ind].copy()
-            # 
+            #
             gradients_deviation = scaled_deviations_list[max_term_ind].axpy(-1.0, scaled_deviations_list[other_ind], in_place=False)
             gradient = gradient.add(gradients_deviation.scale(sum_term_val))
 
@@ -2261,12 +2261,12 @@ class HMCFilter(FiltersBase):
         Print filtering results from the current cycle to the main terminal
         A check on the corresponding options in the configurations dictionary is made to make sure
         saving is requested.
-        
+
         Args:
-        
+
         Returns:
             None
-            
+
         """
         class OldStyle: pass
         if issubclass(OldStyle().__class__, object):
@@ -2283,14 +2283,14 @@ class HMCFilter(FiltersBase):
         """
         Save filtering results from the current cycle to file(s).
         Check the output directory first. If the directory does not exist, create it.
-        
+
         Args:
             output_dir: full path of the directory to save results in
             clean_out_dir (default False): remove the contents of the output directory
-                  
+
         Returns:
             None
-            
+
         """
         # Retrieve output configurations
         output_configs = self.output_configs
@@ -2470,17 +2470,17 @@ class HMCFilter(FiltersBase):
             #
             with open(rmse_file_path, mode='a') as file_handler:
                 file_handler.write(output_line)
-            
+
             #
             filter_configs = self.filter_configs
             if filter_configs['prior_distribution'] == 'gaussian':
                 gmm_prior_settings = {}
                 prior_distribution = 'gaussian'
                 gmm_conf = {}
-                                
+
             elif filter_configs['prior_distribution'] == 'gmm':
                 switched_to_Gaussian_prior = self.switched_to_Gaussian_prior
-                
+
                 if switched_to_Gaussian_prior:
                     gmm_prior_settings = {}
                     prior_distribution = 'gaussian'
@@ -2490,8 +2490,8 @@ class HMCFilter(FiltersBase):
                     gmm_prior_settings = filter_configs['gmm_prior_settings']
                     prior_distribution = 'gmm'
                     gmm_conf = output_configs['filter_statistics']['gmm_prior_statistics']
-                
-            
+
+
             # TODO: Rethink the outputting strategy of this filter...
             # save filter and model configurations (a copy under observation directory and another under state directory)...
             #
@@ -2509,8 +2509,8 @@ class HMCFilter(FiltersBase):
                               forecast_first=filter_configs['forecast_first']
                               )
             #
-            output_conf = output_configs            
-            
+            output_conf = output_configs
+
             # Save chain diagnostics (statistics)
             try:
                 chain_diagnostics = output_configs['filter_statistics']['chain_diagnostics']
@@ -2518,7 +2518,7 @@ class HMCFilter(FiltersBase):
             except (ValueError, NameError, AttributeError, KeyError):
                 print("Couldn't retrieve chain diagnostics for the filter?")
                 # print('output_configs', output_configs)
-                chain_diagnostics = {}            
+                chain_diagnostics = {}
 
             if prior_distribution in ['gmm', 'gaussian_mixture', 'gaussian-mixture']:
                 utility.write_dicts_to_config_file('setup.dat', cycle_observations_out_dir,
@@ -2547,12 +2547,12 @@ class Momentum:
     """
     The momentum variable P in the HMC context is an essential component of the sampling process.
     Here we model it giving it all the necessary functionality to ease working with it.
-    
+
     Initialize the parameters of the momentum variable:
         - The mass matrix (M)
         - Square root of M for generating scaled momentum
         - Inverse of M for evaluating the kinetic energy
-    
+
     Args:
         mass_matrix: a scalar or a numpy array.
              If it is scalar, it will be replicated based on the mass_matrix_shape.
@@ -2562,16 +2562,16 @@ class Momentum:
             This should really be 'diagonal'
         dimension: space dimension of the momentum variable
         model: model object
-        diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on 
+        diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on
             finding the mass matrix inverse.
-    
+
     Returns:
         None
-    
+
     """
 
     def __init__(self, mass_matrix, mass_matrix_shape='diagonal', dimension=None, model=None, verbose=False):
-        
+
         self._initialize_momentum_entities(mass_matrix=mass_matrix,
                                            mass_matrix_shape=mass_matrix_shape,
                                            dimension=dimension,
@@ -2589,7 +2589,7 @@ class Momentum:
             - The mass matrix (M)
             - Square root of M for generating scaled momentum
             - Inverse of M for evaluating the kinetic energy
-        
+
         Args:
             mass_matrix: a scalar or a numpy array.
                  If it is scalar, it will be replicated based on the mass_matrix_shape.
@@ -2599,12 +2599,12 @@ class Momentum:
                 This should really be 'diagonal'
             dimension: space dimension of the momentum variable
             model: model object
-            diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on 
+            diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on
                 finding the mass matrix inverse.
-                
+
         Returns:
             None
-                
+
         """
         self._mass_matrix_shape = mass_matrix_shape.lower()
         if self._mass_matrix_shape not in ['diagonal', 'full']:
@@ -2688,7 +2688,7 @@ class Momentum:
             - The mass matrix (M)
             - Square root of M for generating scaled momentum
             - Inverse of M for evaluating the kinetic energy
-        
+
         Args:
             mass_matrix: a scalar or a numpy array.
                  If it is scalar, it will be replicated based on the mass_matrix_shape.
@@ -2698,12 +2698,12 @@ class Momentum:
                 This should really be 'diagonal'
             dimension: space dimension of the momentum variable
             model: model object
-            diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on 
+            diag_val_thresh: a lower threshold value of the diagonal of the mass matrix to aviod overflow on
                 finding the mass matrix inverse.
-            
+
         Returns:
             None
-            
+
         """
         #
         if mass_matrix_shape is None:
@@ -2792,7 +2792,7 @@ class Momentum:
                 raise ValueError("Unrecognized mass matrix shape!!")
         else:
             raise NotImplementedError("Mass matrix as a numpy array is Not yet supported! Use model object instead!")
-        
+
         #
         return out_momentum_vec
         #
@@ -2847,6 +2847,3 @@ class Momentum:
         #
         return kinetic_energy
         #
-        
-        
-

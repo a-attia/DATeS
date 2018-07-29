@@ -20,7 +20,7 @@
 #
 
 
-""" 
+"""
     A module providing utility functions required to handle machine learning related operations.
 """
 
@@ -28,8 +28,16 @@
 import sys
 import numpy as np
 
-from sklearn.mixture import GMM as GMM_Model
-from sklearn.mixture import VBGMM as VBGMM_Model
+#
+try:
+    try:
+        from sklearn.mixture import GaussianMixture as GMM_Model  # new implementation of GMM in scikit-learn
+    except(ImportError):
+        from sklearn.mixture import GMM as GMM_Model  # this is deprecated in 0.18 and will be removed in 0.20.
+    from sklearn.mixture import VBGMM as VBGMM_Model
+except ImportError:
+    print("Failed to Import sklearn. SciKit-learn tools won't work in this session... Proceeding ...")
+
 
 # from _utility_file_IO import *
 
@@ -52,7 +60,7 @@ def generate_gmm_model_info(ensemble,
                             ):
     """
     Build the best Gaussian mixture model fitting to an ensemble of states.
-    
+
     Args:
         ensemble: A two dimensional numpy array with each row representing an ensemble member
         clustering_model:
@@ -63,17 +71,17 @@ def generate_gmm_model_info(ensemble,
         max_number_of_components:
         min_number_of_points_per_component:
         invert_uncertainty_param:
-    
+
     Returns:
         optimal_model:
         converged:
-        lables: 
-        weights: 
-        means: 
-        covariances: 
-        precisions: 
+        lables:
+        weights:
+        means:
+        covariances:
+        precisions:
         optimal_covar_type:
-        
+
     """
     # Make sure ensemble is an a two dimensional numpy array with each row representing an ensemble member
     assert isinstance(ensemble, np.ndarray)
@@ -139,7 +147,10 @@ def generate_gmm_model_info(ensemble,
         means = optimal_model.means_
 
         if clustering_model == 'gmm':
-            covariances = optimal_model.covars_
+            try:
+                covariances = optimal_model.covariances_
+            except(AttributeError):
+                covariances = optimal_model.covars_
             precisions = None
         elif clustering_model in ['vbgmm', 'vb_gmm', 'vb-gmm']:
             covariances = None
@@ -171,7 +182,10 @@ def generate_gmm_model_info(ensemble,
         optimal_covar_type = temp_covar_type
 
         if clustering_model == 'gmm':
-            covariances = optimal_model.covars_
+            try:
+                covariances = optimal_model.covariances_
+            except(AttributeError):
+                covariances = optimal_model.covars_
             precisions = None
             #
         elif clustering_model in ['vbgmm','vb_gmm']:
@@ -181,11 +195,11 @@ def generate_gmm_model_info(ensemble,
         else:
             # shouldn't be reached at all
             raise ValueError("\n\tclustering algorithm ["+clustering_model+"] is not implemented!")
-            
+
     # ---------------------------- ================================================== ----------------------------
     # Now all the GMM parameters are found appropriately except for the inverse of the uncertainty parameter.
     # ---------------------------- ================================================== ----------------------------
-    # Now we need to check the number of points (lables) in each mixture component, 
+    # Now we need to check the number of points (lables) in each mixture component,
     # and make sure the number of elements per component is at least equal to min_number_of_points_per_component
     # If any of the components covers fewer elements, the number of components is decreased by one, and recurrence
     # is initiated. Since lables are non zero contiguous numbers, we can use the following counter efficiently:
@@ -205,7 +219,7 @@ def generate_gmm_model_info(ensemble,
     else:
         min_elements_count = min(lables_counts)
         num_comp_to_reduce = 1  # just reduce the number of components by one (iteratively)
-    
+
     # Check the number of components against the bounds on number of components:
     if gmm_number_of_components > max_number_of_components:
         # Case 2: gmm_number of components is greater than the maximum number of components allowed; decrease:
@@ -252,7 +266,7 @@ def generate_gmm_model_info(ensemble,
     else:
         # Every thing is fine: max_number_of_components >= gmm_number_of_components >= min_number_of_components;
         pass
-        
+
     # Now check the number of labels assigned to each GMM component:
     if min_elements_count < min_number_of_points_per_component:
         new_number_of_components = gmm_number_of_components - 1
@@ -292,7 +306,7 @@ def generate_gmm_model_info(ensemble,
     else:
         # Everything is fine now to return
         pass
-    
+
     # ---------------------------- ================================================== ----------------------------
     # Finally: (optionally) invert the Covariance/Precision array(s):
     # ---------------------------- ================================================== ----------------------------
@@ -360,12 +374,14 @@ def generate_gmm_model_info(ensemble,
         print("Unfortunately: Convergence of GMM under passed settings has failed!!!")
     else:
         pass
-    
+
     # ---------------------------- ================================================== ----------------------------
     # Done; Now return...
     return optimal_model, converged, lables, weights, means, covariances, precisions, optimal_covar_type
     # ---------------------------- ================================================== ----------------------------
     #
+# Add an alias
+fit_GaussianMixtureModel = generate_gmm_model_info
 
 
 #
@@ -378,18 +394,18 @@ def GMM_clustering(Ensemble,
                    ):
     """
     Standard Gaussian Mixture model with EM
-    
+
     Args:
-        Ensemble: 
-        num_comp: 
-        covariance_type: 
-        inf_criteria: 
-    
+        Ensemble:
+        num_comp:
+        covariance_type:
+        inf_criteria:
+
     Returns:
-         gmm_model: 
-         opt_inf_criterion: 
-         optimal_covar_type: 
-         
+         gmm_model:
+         opt_inf_criterion:
+         optimal_covar_type:
+
     """
     #
     inf_criteria = inf_criteria.lower()
@@ -454,7 +470,7 @@ def VBGMM_clustering(Ensemble,
                      ):
     """
     Variational Gaussian Mixture model with EM
-    
+
     Args:
         Ensemble:
         num_comp:
@@ -469,12 +485,12 @@ def VBGMM_clustering(Ensemble,
         n_iter=10:
         params='wmc':
         init_params='wmc'
-        
+
     Returns:
-        gmm_model: 
-        opt_inf_criterion: 
+        gmm_model:
+        opt_inf_criterion:
         optimal_covar_type:
-        
+
     """
     #
     inf_criteria = inf_criteria.lower()
@@ -541,4 +557,47 @@ def VBGMM_clustering(Ensemble,
 
     return gmm_model, opt_inf_criterion, optimal_covar_type
     #
-    
+
+
+# Test function generate_gmm_model_info:
+if __name__ == '__main__':
+
+    msg = """
+        \n\rThis is to test GMM generation utility function
+        \r\t1- generate a sample of 70 observation point, and dimensionality is 10
+        \r\t   this is intended to be a sample from GMM with 3 peaks.
+        \r\t2- Fit a GMM to the sample, and display the results.
+    """
+    print(msg)
+
+    print(" >> Generating a GMM random samples with three points of central tendency... ")
+    dimension = 2
+    ensemble = np.empty((70, dimension))
+
+    ensemble[  :25] = np.random.randn(25, dimension)
+    ensemble[25:50] = np.random.randn(25, dimension) + 5.5
+    ensemble[50:  ] = np.random.randn(20, dimension) - 4.5
+
+
+    print(" >> Fitting a GMM... "),
+    output = generate_gmm_model_info(ensemble=ensemble,
+                                     clustering_model='gmm',
+                                     cov_type=None,
+                                     inf_criteria='aic',
+                                     number_of_components=None,
+                                     min_number_of_components=None,
+                                     max_number_of_components=10,
+                                     min_number_of_points_per_component=2,
+                                     invert_uncertainty_param=False,
+                                     verbose=False
+                                     )
+    print("Done...")
+
+    print("optimal_model", output[0])
+    print("converged", output[1])
+    print("lables", output[2])
+    print("weights", output[3])
+    print("means", output[4])
+    print("covariances", output[5])
+    print("precisions", output[6])
+    print("optimal_covar_type", output[7])
