@@ -28,7 +28,7 @@ import dates_utility as utility
 from models_base import ModelsBase
 
 
-class SmoothersBase(object):
+class SmootherBase(object):
     """
     A base class implementing common features of data assimilation variational smoothers (with one or more observation)
     
@@ -121,8 +121,8 @@ class SmoothersBase(object):
     
     def __init__(self, smoother_configs, output_configs=None):
         
-        self.smoother_configs = self.validate_smoother_configs(smoother_configs, SmoothersBase._def_smoother_configs)
-        self.output_configs = self.validate_output_configs(output_configs, SmoothersBase._def_output_configs)
+        self.smoother_configs = self.validate_smoother_configs(smoother_configs, SmootherBase._def_smoother_configs)
+        self.output_configs = self.validate_output_configs(output_configs, SmootherBase._def_output_configs)
         # self.model = self.smoother_configs['model']
         if self.output_configs['file_output'] and not os.path.isdir(self.output_configs['file_output_dir']):
                 os.mkdir(self.output_configs['file_output_dir'])
@@ -132,7 +132,7 @@ class SmoothersBase(object):
         self.smoother_configs['analysis_timespan'] = np.asarray(self.smoother_configs['analysis_timespan']).flatten()
         self.smoother_configs['obs_checkpoints'] = np.asarray(self.smoother_configs['obs_checkpoints']).flatten()
         #
-        self._time_eps = SmoothersBase.__time_eps
+        self._time_eps = SmootherBase.__time_eps
         
         try:
             self._verbose = self.output_configs['verbose']

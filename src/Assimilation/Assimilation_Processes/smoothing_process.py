@@ -30,7 +30,7 @@
 
     Mandatory keys in 'assimilation_configs':
     -----------------------------------------
-        1-  'smoother': smoother (object of SmoothersBase or a derived class)
+        1-  'smoother': smoother (object of SmootherBase or a derived class)
             'experiment_timespan': an iterable with two entries [t0, tf] where the assimilation windows are subintervals of these bounds.
         2-  'obs_checkpoints': an iterable with time instances at which observations are made
         3-  'da_checkpoints': beginning of assimilation windows (all entries must be exclusively between t0, tf).
@@ -60,7 +60,7 @@ import os
 
 import dates_utility as utility
 from assimilation_process_base import AssimilationProcess
-from smoothers_base import SmoothersBase
+from smoothers_base import SmootherBase
 from models_base import ModelsBase
 
 
@@ -144,7 +144,7 @@ class SmoothingProcess(AssimilationProcess):
         else:
             pass
         #
-    except :
+    except:
         __time_eps = None
     finally:
         if __time_eps is None:
@@ -186,21 +186,21 @@ class SmoothingProcess(AssimilationProcess):
         self._running_forecast_time = experiment_timespan[0]
         try:
             self._running_forecast_state = self.assimilation_configs['initial_forecast'].copy()
-        except(AttributeError):
+        except(TypeError, AttributeError):
             self._running_forecast_state = None
         try:  # TODO: This is overkill!
-            self._running_forecast_ensemble = [s.copy for s in self.assimilation_configs['initial_ensemble']
-        except(AttributeError):
+            self._running_forecast_ensemble = [s.copy for s in self.assimilation_configs['initial_ensemble']]
+        except(TypeError, AttributeError):
             self._running_forecast_ensemble = None
         #
         self._running_analysis_time = self._running_forecast_time
         try:
             self._running_analysis_state = self.assimilation_configs['initial_forecast'].copy()
-        except(AttributeError):
+        except(TypeError, AttributeError):
             self._running_analysis_state = None
         try:  # TODO: This is overkill!
-            self._running_analysis_ensemble = [s.copy for s in self.assimilation_configs['initial_ensemble']
-        except(TypeError):
+            self._running_analysis_ensemble = [s.copy for s in self.assimilation_configs['initial_ensemble']]
+        except(TypeError, AttributeError):
             self._running_analysis_ensemble = None
         #
         # a list of dictionaries that will hold essential information from each assimilation cycle
@@ -325,7 +325,7 @@ class SmoothingProcess(AssimilationProcess):
         elif analysis_state is None:
             print("How is it possible that an analysis trajectory is created without an anlysis state!")
             raise ValueError
-        elif analysis_trajcetory is None:
+        elif analysis_trajectory is None:
             # Generate analysis trajecory from analysis state
             analysis_trajectory = []
             traject = self.model.integrate_state(initial_state=analysis_state, checkpoints=analysis_timespan)
@@ -653,7 +653,7 @@ class SmoothingProcess(AssimilationProcess):
                 # Found some observations; start Assimilation over this window:
 
                 # TODO: Update to accomodate ensmbles as well!
-                raise ValueError("TODO...WIP....")
+                # raise ValueError("TODO...WIP....")
                 an_trjct, an_ens_trjct = self.assimilation_cycle(window_bounds=window_bounds,
                                                                  observations_list=local_observations,
                                                                  obs_checkpoints=local_obs_checkpoints,
@@ -685,11 +685,11 @@ class SmoothingProcess(AssimilationProcess):
             self._running_analysis_time = window_bounds[0]
             try:
                 self._running_analysis_state = analysis_state.copy()
-            except(AttributeError):
+            except(TypeError, AttributeError):
                 self._running_analysis_state = analysis_state
             try:
                 self._running_analysis_ensemble = [s.copy() for s in analysis_ensemble]
-            except(AttributeError):
+            except(TypeError, AttributeError):
                 self._running_analysis_ensemble = analysis_ensemble
             #
 
