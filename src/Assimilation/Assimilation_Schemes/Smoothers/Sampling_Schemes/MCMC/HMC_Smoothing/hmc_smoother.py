@@ -45,7 +45,7 @@ from models_base import ModelsBase
 
 
 import dates_utility as utility
-from smoothers_base import SmoothersBase
+from smoothers_base import SmootherBase
 from state_vector_base import StateVectorBase as StateVector
 from state_matrix_base import StateMatrixBase as StateMatrix
 from observation_vector_base import ObservationVectorBase as ObservationVector
@@ -53,7 +53,7 @@ from observation_vector_base import ObservationVectorBase as ObservationVector
 from scipy.linalg import lu_factor, lu_solve
 
 
-class HMCSmoother(SmoothersBase):
+class HMCSmoother(SmootherBase):
     """
     A class implementing the Hamiltonian/Hybrid Monte-Carlo Sampling family for smoothing developed by Ahmed Attia (2014/2015/2016).
 
@@ -260,7 +260,7 @@ class HMCSmoother(SmoothersBase):
 
         smoother_configs = utility.aggregate_configurations(smoother_configs, HMCSmoother._def_local_smoother_configs)
         output_configs = utility.aggregate_configurations(output_configs, HMCSmoother._local_def_output_configs)
-        SmoothersBase.__init__(self, smoother_configs=smoother_configs, output_configs=output_configs)
+        SmootherBase.__init__(self, smoother_configs=smoother_configs, output_configs=output_configs)
         #
         try:
             self.model = self.smoother_configs['model']
@@ -509,7 +509,7 @@ class HMCSmoother(SmoothersBase):
 
         """
         # Call basic functionality from the parent class:
-        SmoothersBase.smoothing_cycle(self, update_reference=update_reference)
+        SmootherBase.smoothing_cycle(self, update_reference=update_reference)
         #
         # Add further functionality if you wish...
         #

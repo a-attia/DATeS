@@ -31,9 +31,9 @@ import sys
 import re
 
 try:
-    import cPickle as pickle
+    import cPickle as pckle
 except:
-    import pickle
+    import pckle
     
 try:  # ConfigParser is renamed to configparser in newer versions of Python
     import ConfigParser
@@ -556,66 +556,90 @@ def aggregate_configurations(configs, def_configs, copy_configurations=True):
     return configs
 
 
-def write_dicts_to_config_file(file_name, out_dir, dicts, sections_headers):
+def write_dicts_to_config_file(file_name, out_dir, dicts, sections_headers, pickle=False):
     """
     Write one or more dictionaries (passed as a list) to a configuration file.
-    
+
     Args:
         param file_name:
         out_dir:
         dicts:
         sections_headers:
-    
+
     """
-    configs = ConfigParser.ConfigParser()
-    if isinstance(dicts, list) and isinstance(sections_headers, list):
-        # configs = ConfigParser.ConfigParser()
-        num_sections = len(sections_headers)
-        for sec_ind in xrange(num_sections):
-            #
-            curr_dict = dicts[sec_ind]
-            if isinstance(curr_dict, dict):
-                if len(curr_dict) == 0:
+    if not pickle:
+        configs = ConfigParser.ConfigParser()
+        if isinstance(dicts, list) and isinstance(sections_headers, list):
+            # configs = ConfigParser.ConfigParser()
+            num_sections = len(sections_headers)
+            for sec_ind in xrange(num_sections):
+                #
+                curr_dict = dicts[sec_ind]
+                if isinstance(curr_dict, dict):
+                    if len(curr_dict) == 0:
+                        continue
+                    else:
+                        header = sections_headers[sec_ind]
+                        configs.add_section(header)
+                        for key in curr_dict:
+                            configs.set(header, key, curr_dict[key])
+                elif curr_dict is None:
                     continue
                 else:
-                    header = sections_headers[sec_ind]
-                    configs.add_section(header)
-                    for key in curr_dict:
-                        configs.set(header, key, curr_dict[key])
-            elif curr_dict is None:
-                continue
+                    raise AssertionError("An entry passed is neither a dictionary nor None. passed %s" %repr(curr_dict))
+        #
+        elif isinstance(dicts, dict) and isinstance(sections_headers, str):
+            # This is a single dictionary --> a single section in the configuration file.
+            if len(dicts) == 0:
+                pass
             else:
-                raise AssertionError("An entry passed is neither a dictionary nor None. passed %s" %repr(curr_dict))
-    #
-    elif isinstance(dicts, dict) and isinstance(sections_headers, str):
-        # This is a single dictionary --> a single section in the configuration file.
-        if len(dicts) == 0:
+                # configs = ConfigParser.ConfigParser()
+                configs.add_section(sections_headers)
+                for key in dicts:
+                    configs.set(sections_headers, key, dicts[key])
+        #
+        elif dicts is None:
             pass
         else:
-            # configs = ConfigParser.ConfigParser()
-            configs.add_section(sections_headers)
-            for key in dicts:
-                configs.set(sections_headers, key, dicts[key])
-    #
-    elif dicts is None:
-        pass
-    else:
-        print(dicts, sections_headers)
-        raise AssertionError("Either 'dicts' should be a dictionary and 'sections_headers' be a string, OR, \n"
-                             "both are lists of same length.")
+            print(dicts, sections_headers)
+            raise AssertionError("Either 'dicts' should be a dictionary and 'sections_headers' be a string, OR, \n"
+                                 "both are lists of same length.")
 
-    #  write the configurations to file:
-    if len(configs.sections()) > 0:
+        #  write the configurations to file:
+        if len(configs.sections()) > 0:
+            if not os.path.isdir(out_dir):
+                raise IOError(" ['%s'] is not a valid directory!" % out_dir)
+            file_path = os.path.join(out_dir, file_name)
+            try:
+                 # write, save, and close the configurations file
+                 with open(file_path, 'w') as configs_file_ptr:
+                    configs.write(configs_file_ptr)
+            except IOError:
+                raise IOError("A configuration template could not be written due to IO Error!")
+
+    else:
+        # pickle
+        target_dict = {}
+        for title, d in zip(sections_headers, dicts):
+            target_dict.update({title:d})
+
         if not os.path.isdir(out_dir):
             raise IOError(" ['%s'] is not a valid directory!" % out_dir)
         file_path = os.path.join(out_dir, file_name)
-        try:
-             # write, save, and close the configurations file
-             with open(file_path, 'w') as configs_file_ptr:
-                configs.write(configs_file_ptr)
-        except IOError:
-            raise IOError("A configuration template could not be written due to IO Error!")
+        pckle.dump(target_dict, open(file_path, 'wb'))
     #
+
+def read_pickled_dicts(file_path):
+    """
+    """
+    cont = pckle.load(open(file_path, 'rb'))
+    sections_headers = cont.keys()
+    #
+    dicts = []
+    for key in cont:
+        dicts.append(cont[key])
+
+    return dicts, sections_headers
 
 
 def read_configs(filenames):

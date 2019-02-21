@@ -126,7 +126,6 @@ class FiltersBase(object):
             
         """
         model = self.filter_configs['model']
-        # reference_state = self.filter_configs['reference_state']  # always given at the initial time of the timespan
         # print('reference_state', reference_state)
         timespan = self.filter_configs['timespan']
         observation_time = self.filter_configs['observation_time']
@@ -142,8 +141,9 @@ class FiltersBase(object):
         except(KeyError, ValueError, AttributeError, NameError):
             raise ValueError("Couldn't find the reference time in the configurations dictionary")
         else:
-            if reference_time != timespan[0]:
-                raise ValueError("Reference time does not match the initial time of the reference time-span!")
+            if reference_time is not None:
+                if reference_time != timespan[0]:
+                    raise ValueError("Reference time does not match the initial time of the reference time-span!")
         #
         #
         if forecast_first:
@@ -170,23 +170,29 @@ class FiltersBase(object):
                     initial_state = utility.ensemble_mean(self.filter_configs['forecast_ensemble'])
                 except:
                     raise ValueError("Couldn't find either forecast state or forecast ensemble while analysis should be done first!")
-            finally:
-                if initial_state is None:
-                    try:
-                        initial_state = utility.ensemble_mean(self.filter_configs['forecast_ensemble'])
-                    except:
-                        raise ValueError("Couldn't find either forecast state or forecast ensemble while analysis should be done first!")
+            if initial_state is None:
+                try:
+                    initial_state = utility.ensemble_mean(self.filter_configs['forecast_ensemble'])
+                except:
+                    raise ValueError("Couldn't find either forecast state or forecast ensemble while analysis should be done first!")
 
         # Retrieve the reference state and evaluate initial root-mean-squared error
-        reference_state = self.filter_configs['reference_state'].copy()
-        initial_rmse = utility.calculate_rmse(initial_state, reference_state)
+        reference_state = self.filter_configs['reference_state']  # always given at the initial time of the timespan
+        if reference_state is not None:
+            reference_time = self.filter_configs['reference_time']
 
+        try:
+            initial_rmse = utility.calculate_rmse(initial_state, reference_state)
+        except:
+            reference_state = None
+            reference_time = None
+            print("Failed to calculate Initial RMSE!")
+            initial_rmse = 0.0
         #
         # Start the filtering process: preprocessing -> filtering(forecast->+<-anslsysis) -> postprocessing
         if apply_preprocessing:
             self.cycle_preprocessing()
 
-        
         if not forecast_first and analysis_time != min(forecast_first, analysis_time, observation_time):
             # this is a double check!
             raise ValueError("While ANALYSIS should be done first, confusion occurred with times given!\n"
@@ -199,52 +205,53 @@ class FiltersBase(object):
             # print("\n\n\n\n\n\n ANALYSIS FIRTS \n\n\n\n\n")
             # analysis should be carried out first in this case
             state_size = self.filter_configs['model'].state_size()
-            analysis_rmse = utility.calculate_rmse(reference_state, analysis_state, state_size)
+            if reference_state is not None:
+                try:
+                    analysis_rmse = utility.calculate_rmse(reference_state, analysis_state, state_size)
+                except:
+                    print("Failed to calculate Analysis RMSE!")
+                    analysis_rmse = 0.0
             analysis_time = self.filter_configs['analysis_time']
-            
+
             # Analysis step
             self.analysis()
             #
 
             # update the reference state
-            try:
-                reference_time = self.filter_configs['reference_time']
-            except:
-                raise ValueError("Couldn't find reference time in the configurations dictionary")
-            else:
+            if reference_time is not None:
                 if reference_time != timespan[0] or reference_time != analysis_time:
                     raise ValueError("Reference time does not match the initial time of the reference time-span!")
             local_checkpoints = [analysis_time, forecast_time]
-
-            tmp_trajectory = model.integrate_state(initial_state=reference_state, checkpoints=local_checkpoints)
-            if isinstance(tmp_trajectory, list):
-                reference_state = tmp_trajectory[-1].copy()
-            else:
-                reference_state = tmp_trajectory.copy()
-            reference_time = local_checkpoints[-1]
+            
+            if reference_state is not None:
+                tmp_trajectory = model.integrate_state(initial_state=reference_state, checkpoints=local_checkpoints)
+                if isinstance(tmp_trajectory, list):
+                    reference_state = tmp_trajectory[-1].copy()
+                else:
+                    reference_state = tmp_trajectory.copy()
+                reference_time = local_checkpoints[-1]
             
             # forecast now:
             self.forecast()
             
-            forecast_rmse = utility.calculate_rmse(reference_state, forecast_state, state_size)
-
+            try:
+                forecast_rmse = utility.calculate_rmse(reference_state, forecast_state, state_size)
+            except:
+                print("Failed to calculate Forecast RMSE!")
+                forecast_rmse = 0.0
             # update the reference state Moved to the process
-            if update_reference:
+            if update_reference and reference_state is not None:
                 self.filter_configs['reference_state'] = reference_state.copy()
                 self.filter_configs['reference_time'] = reference_time
-                
+        
         else:
             # forecast should be done first
             # print("\n\n\n\n\n\n FORECAST FIRTS \n\n\n\n\n")
             state_size = self.filter_configs['model'].state_size()
-            try:
-                reference_time = self.filter_configs['reference_time']
-            except:
-                raise ValueError("Couldn't find reference time in the configurations dictionary")
-            else:
+            if reference_time is not None:
                 if reference_time != timespan[0]:
                     raise ValueError("Reference time does not match the initial time of the reference time-span!")
-            local_checkpoints = [reference_time, timespan[-1]]
+                local_checkpoints = [reference_time, timespan[-1]]
             
             # Forecast step:
             self.forecast()
@@ -255,22 +262,26 @@ class FiltersBase(object):
                 raise NameError("forecast_state must be updated by the filter "
                                 "and added to 'self.filter_configs'!")
             
-            tmp_trajectory = model.integrate_state(initial_state=reference_state, checkpoints=timespan)
-            if isinstance(tmp_trajectory, list):
-                up_reference_state = tmp_trajectory[-1].copy()
-            else:
-                up_reference_state = tmp_trajectory.copy()
-            reference_time = local_checkpoints[-1]
+            if reference_state is not None:
+                tmp_trajectory = model.integrate_state(initial_state=reference_state, checkpoints=timespan)
+                if isinstance(tmp_trajectory, list):
+                    up_reference_state = tmp_trajectory[-1].copy()
+                else:
+                    up_reference_state = tmp_trajectory.copy()
+                reference_time = local_checkpoints[-1]
             
-            # Update the reference state
-            if update_reference:
-                self.filter_configs['reference_state'] = up_reference_state.copy()
-                self.filter_configs['reference_time'] = reference_time
-                
+                # Update the reference state
+                if update_reference:
+                    self.filter_configs['reference_state'] = up_reference_state.copy()
+                    self.filter_configs['reference_time'] = reference_time
+                    
             # observation = self.filter_configs['observation']
             #
-            forecast_rmse = utility.calculate_rmse(up_reference_state, forecast_state, state_size)
-            
+            try:
+                forecast_rmse = utility.calculate_rmse(up_reference_state, forecast_state, state_size)
+            except:
+                print("Failed to calculate Forecast RMSE!")
+                forecast_rmse = 0.0
             # Analysis step:
             self.analysis()
             #
@@ -280,8 +291,11 @@ class FiltersBase(object):
                 raise NameError("analysis_state must be updated by the filter "
                                 "and added to 'self.filter_configs'!")
             
-            analysis_rmse = utility.calculate_rmse(up_reference_state, analysis_state, state_size)
-
+            try:
+                analysis_rmse = utility.calculate_rmse(up_reference_state, analysis_state, state_size)
+            except:
+                print("Failed to calculate Analysis RMSE!")
+                analysis_rmse = 0.0
             #
 
         # Apply post-processing if required

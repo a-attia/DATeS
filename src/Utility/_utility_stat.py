@@ -26,6 +26,8 @@
 
 
 import numpy as np
+import scipy
+import scipy.special as sp
 from _utility_misc import ensemble_to_np_array
 
 from state_vector_numpy import StateVectorNumpy as StateVector
@@ -276,3 +278,47 @@ def generate_ensemble(ensemble_size, ensemble_average, noise_model):
         perturbed_ensemble.append(noise_vec.add(ensemble_average))
 
     return perturbed_ensemble
+
+
+def calc_kl_dist(ranks_freq, bins_bounds):
+    """
+    Calculate distance of a histogram, to a uniform rank histogram in 3 ways
+    1- KL divergence between a fitted distribution, and a uniform distribution
+    2- average distance between bins' heights and uniformly distributed bins
+    3- average distance between sampled bins from a fitted Beta to the rank histogram, and uniform distribution.
+    """
+    data = []
+    for fr, bn in zip(ranks_freq, bins_bounds):
+        data += [float(bn)]*fr
+    data = np.asarray(data)
+    #
+    dist = scipy.stats.beta
+    params = dist.fit(data)
+
+    betas = np.array([params[0], params[1]])
+    B0 = betas.sum()
+
+    alphas = np.array([1, 1])
+    A0 = alphas.sum()
+    KL_distance = sp.gammaln(A0) - np.sum(sp.gammaln(alphas)) \
+                  - sp.gammaln(B0) + np.sum(sp.gammaln(betas)) \
+                  + np.sum((alphas-betas) * (sp.digamma(alphas)-sp.digamma(A0)))
+
+    ranks_rel_freq = ranks_freq*1.0 / ranks_freq.sum()
+    # Calculate empirical distances:
+    ens_size = len(bins_bounds) - 1
+    try:
+        random_sample = dist.rvs(params[0], params[1], size=1000)
+        hist, freq = np.histogram(random_sample, bins=ens_size)
+        rel_freq = freq/freq.sum()
+        beta_avg_distances = np.mean(np.abs(ranks_rel_freq-rel_freq))
+    except(ValueError):
+        print("WARNING: Distance based on sampling Beta failed; using numpy.NaN")
+        beta_avg_distances = np.nan
+
+    avg_rel_freq = np.mean(ranks_rel_freq)
+    empirical_distances = (np.mean(np.abs(ranks_rel_freq-avg_rel_freq)), beta_avg_distances)
+
+    return KL_distance, empirical_distances
+
+

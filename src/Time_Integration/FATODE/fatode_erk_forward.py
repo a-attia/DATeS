@@ -28,7 +28,8 @@ import numpy as np
 import functools
 import numpy.random as nr
 
-import re 
+import sys
+import re
 
 import dates_utility as utility
 
@@ -91,8 +92,14 @@ class FatODE_ERK_FWD(TimeIntegratorBase):
         # ==================================================================
         # -----------------<Online WRAPPER GENERATION>----------------------
         # ==================================================================
-        erkfwd_setup.create_wrapper(verbose=self._verbose)
-        from erkfwd import erk_f90_integrator as integrate  # CAN-NOT be moved up.
+        try:
+            from erkfwd import erk_f90_integrator as integrate  # CAN-NOT be moved up.
+        except(ImportError):
+            print("Recreating FATODE Forward Integration wrapper..."),
+            sys.stdout.flush()
+            erkfwd_setup.create_wrapper(verbose=self._verbose)
+            from erkfwd import erk_f90_integrator as integrate  # CAN-NOT be moved up.
+            print("done...")
         self.__integrate = integrate
         # ==================================================================
         # ----------------------------<Done!>-------------------------------

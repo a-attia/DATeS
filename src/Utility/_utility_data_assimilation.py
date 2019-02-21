@@ -24,6 +24,7 @@
     A module providing functions that handle DA functionalities; such as ensemble propagation, and inflation, etc.
 """
 
+import os
 
 import numpy as np
 try:
@@ -130,8 +131,8 @@ def calculate_rmse(first, second, vec_size=None):
 
     """
     if not isinstance(first, type(second)):
-        print('first', first)
-        print('second', second)
+        print('in Utility.calculate_rmse: Type of first entry: %s ' % type(first))
+        print('in Utility.calculate_rmse: Type of second entry: %s ' % type(second))
         raise TypeError(" The two vectors must be of the same type!"
                         "First: %s\n"
                         "Second: %s" % (repr(type(first)), repr(type(first))))
@@ -150,7 +151,7 @@ def calculate_rmse(first, second, vec_size=None):
 
 #
 #
-def calculate_localization_coefficients(radius, distances, method='Gauss'):
+def calculate_localization_coefficients(radius, distances, method='Gauss', verbose=False):
     """
     Evaluate the spatial decorrelation coefficients based on the passed vector of distances and the method.
 
@@ -175,220 +176,263 @@ def calculate_localization_coefficients(radius, distances, method='Gauss'):
     """
     _methods_supported = ['gauss', 'cosine', 'cosine_squared', 'gaspari_cohn', 'exp3', 'cubic', 'quadro', 'step']
     #
+    if method is None:
+        print("You must pass a method:\n%s" % repr(_methods_supported))
+        raise ValueError
+    #
     if isscalar(distances):
+        return_scalar = True
         distances = np.array([distances], dtype=np.float)  # this is local now
     elif isiterable(distances):
+        return_scalar = False
         distances = np.asarray(distances).flatten().astype(np.float)
+        if distances.ndim == 0:
+            distances = np.array([distances.item()])
     else:
         print("distances must be either a scalar, or an iterable! Unknown Type!" % type(distances))
         raise TypeError
         #
 
-    #
-    if method is None:
-        if distances.size == 1:
-            return 1
-        else:
-            return np.ones_like(distances)
+    # if distances.size == 1:
+    #     distances = distances[0]
+    # else:
+    #     pass
+    #     # good to go!
 
-    if isinstance(distances, np.ndarray):
-        if distances.ndim == 0:
-            distances = np.array([distances.item()])
-
-    if distances.size == 1:
-        distances = distances[0]
-    else:
-        pass
-        # good to go!
-
-    #
     # print("radius", radius)
-    # print("distances", distances)
-    # coefficients = np.zeros_like(distances)
-    #
-    if np.size(distances)==1:
+    # print("distances", type(distances), distances)
+    
+    if isscalar(radius):
+        if radius != 0:
+            # -----------------------------
+            # NON-ZERO Localization Radius:
+            # -----------------------------
+            #
+            if np.size(distances)==1:
 
-        if isscalar(radius):
-            pass
-        else:
-            if len(radius) == 1:
-                radius = radius[0]
-            else:
-                print("Radius is expected to be either a scalar, or an iterable of lenght 1!, NOT %s " % type(radius))
-                raise TypeError
+                if isscalar(radius):
+                    pass
+                else:
+                    if len(radius) == 1:
+                        radius = radius[0]
+                    else:
+                        print("Radius is expected to be either a scalar, or an iterable of lenght 1!, NOT %s " % type(radius))
+                        raise TypeError
 
-        # a scalar is passed in this case...
-        if re.match(r'\Agauss\Z', method, re.IGNORECASE):
-            coefficients = np.exp(-0.5*((distances/radius)**2))
-        elif re.match(r'\Aexp3\Z', method, re.IGNORECASE):
-            coefficients = np.exp(-0.5 * (distances/radius) ** 3)
-        elif re.match(r'\Acosine\Z', method, re.IGNORECASE):
-            thresh = radius * 2.3167
-            if distances <= thresh:
-                red = distances/thresh
-                coefficients = (1 + np.cos(red*np.pi)) / 2.0
+                # a scalar is passed in this case...
+                if re.match(r'\Agauss\Z', method, re.IGNORECASE):
+                    coefficients = np.exp(-0.5*((distances/radius)**2))
+                elif re.match(r'\Aexp3\Z', method, re.IGNORECASE):
+                    coefficients = np.exp(-0.5 * (distances/radius) ** 3)
+                elif re.match(r'\Acosine\Z', method, re.IGNORECASE):
+                    thresh = radius * 2.3167
+                    if distances <= thresh:
+                        red = distances/thresh
+                        coefficients = (1 + np.cos(red*np.pi)) / 2.0
+                    else:
+                        coefficients = 0.0
+                elif re.match(r'\Acosine(_|-)*squared\Z', method, re.IGNORECASE):
+                    thresh = radius * 3.2080
+                    if distances <= thresh:
+                        red = distances/thresh
+                        coefficients = ((1 + np.cos(red*np.pi)) / 2.0) ** 2
+                    else:
+                        coefficients = 0.0
+                elif re.match(r'\Agaspari(_|-)*cohn\Z', method, re.IGNORECASE):
+                    thresh = radius * 1.7386
+                    if distances <= thresh:
+                        red = distances/thresh
+                        r2 = red ** 2
+                        r3 = red ** 3
+                        coefficients = 1.0 + r2 * (-r3/4.0 + r2/2.0) + r3 * (5.0/8.0) - r2 * (5.0/3.0)
+                    elif distances <= thresh*2:
+                        red = distances/thresh
+                        r1 = red
+                        r2 = red ** 2
+                        r3 = red ** 3
+                        coefficients = r2 * (r3/12.0 - r2/2.0) + r3 * (5.0/8.0) + r2 * (5.0/3.0) - r1 * 5.0 + 4.0 - (2.0/3.0) / r1
+                    else:
+                        coefficients = 0.0
+                elif re.match(r'\Acubic\Z', method, re.IGNORECASE):
+                    thresh = radius * 1.8676
+                    if distances <= thresh:
+                        red = distances/thresh
+                        coefficients = (1.0 - (red) ** 3) ** 3
+                    else:
+                        coefficients = 0.0
+                elif re.match(r'\Aquadro\Z', method, re.IGNORECASE):
+                    thresh = radius * 1.7080
+                    if distances <= thresh:
+                        red = distances/thresh
+                        coefficients = (1.0 - (red) ** 4) ** 4
+                    else:
+                        coefficients = 0.0
+                elif re.match(r'\Astep\Z', method, re.IGNORECASE):
+                    if distances < radius:
+                        coefficients = 1.0
+                    else:
+                        coefficients = 0.0
+                else:
+                    # Shouldn't be reached if we keep the first test.
+                    raise ValueError("The Localization method '%s' is not supported."
+                                     "Supported methods are: %s" % (method, repr(_methods_supported)))
+            #
             else:
-                coefficients = 0.0
-        elif re.match(r'\Acosine(_|-)*squared\Z', method, re.IGNORECASE):
-            thresh = radius * 3.2080
-            if distances <= thresh:
-                red = distances/thresh
-                coefficients = ((1 + np.cos(red*np.pi)) / 2.0) ** 2
-            else:
-                coefficients = 0.0
-        elif re.match(r'\Agaspari(_|-)*cohn\Z', method, re.IGNORECASE):
-            thresh = radius * 1.7386
-            if distances <= thresh:
-                red = distances/thresh
-                r2 = red ** 2
-                r3 = red ** 3
-                coefficients = 1.0 + r2 * (-r3/4.0 + r2/2.0) + r3 * (5.0/8.0) - r2 * (5.0/3.0)
-            elif distances <= thresh*2:
-                red = distances/thresh
-                r1 = red
-                r2 = red ** 2
-                r3 = red ** 3
-                coefficients = r2 * (r3/12.0 - r2/2.0) + r3 * (5.0/8.0) + r2 * (5.0/3.0) - r1 * 5.0 + 4.0 - (2.0/3.0) / r1
-            else:
-                coefficients = 0.0
-        elif re.match(r'\Acubic\Z', method, re.IGNORECASE):
-            thresh = radius * 1.8676
-            if distances <= thresh:
-                red = distances/thresh
-                coefficients = (1.0 - (red) ** 3) ** 3
-            else:
-                coefficients = 0.0
-        elif re.match(r'\Aquadro\Z', method, re.IGNORECASE):
-            thresh = radius * 1.7080
-            if distances <= thresh:
-                red = distances/thresh
-                coefficients = (1.0 - (red) ** 4) ** 4
-            else:
-                coefficients = 0.0
-        elif re.match(r'\Astep\Z', method, re.IGNORECASE):
-            if distances < radius:
-                coefficients = 1.0
-            else:
-                coefficients = 0.0
+                #
+                if np.isscalar(radius):
+                    pass
+                else:
+                    # multiple radii are given. Each will be taken to the corresponding distance point.
+                    # distances, and radius have to be of equal sizes
+                    radius = np.asarray(radius).squeeze().astype(np.float)
+                    if radius.size != distances.size:
+                        print(radius.size, distances.size)
+                        print("distances, and radius have to be of equal sizes!")
+                        raise AssertionError
+
+                #  distances is of dimension greater than one. vector is assumed
+                if re.match(r'\Agauss\Z', method, re.IGNORECASE):
+                    # print("distances", distances)
+                    # print("radius", radius)
+                    coefficients = np.exp(-0.5*((distances/radius)**2))
+
+                elif re.match(r'\Aexp3\Z', method, re.IGNORECASE):
+                    coefficients = np.exp(-0.5 * (distances/radius) ** 3);
+
+                elif re.match(r'\Acosine\Z', method, re.IGNORECASE):
+                    coefficients = np.zeros_like(distances)
+                    thresh = radius * 2.3167
+                    indexes = (distances <= thresh)
+                    if np.isscalar(thresh):
+                        red = distances[indexes] / thresh
+                    else:
+                        red = distances[indexes] / thresh[indexes]
+                    coefficients[indexes] = (1 + np.cos(red*np.pi)) / 2.0
+
+                elif re.match(r'\Acosine(_|-)*squared\Z', method, re.IGNORECASE):
+                    coefficients = np.zeros_like(distances)
+                    thresh = radius * 3.2080
+                    indexes = (distances <= thresh)
+                    if np.isscalar(thresh):
+                        red = distances[indexes] / thresh
+                    else:
+                        red = distances[indexes] / thresh[indexes]
+                    coefficients[indexes] = ((1 + np.cos(red*np.pi)) / 2.0) ** 2
+
+                elif re.match(r'\Agaspari(_|-)*cohn\Z', method, re.IGNORECASE):
+                    coefficients = np.zeros_like(distances)
+                    thresh = radius * 1.7386
+                    indexes = (distances <= thresh)
+                    # print('indexes', indexes)
+                    if np.isscalar(thresh):
+                        r2 = (distances[indexes] / thresh) ** 2
+                        r3 = (distances[indexes] / thresh) ** 3
+                    else:
+                        r2 = (distances[indexes] / thresh[indexes]) ** 2
+                        r3 = (distances[indexes] / thresh[indexes]) ** 3
+
+                    coefficients[indexes] = 1.0 + r2 * (-r3/4.0 + r2/2.0) + r3 * (5.0/8.0) - r2 * (5.0/3.0)
+
+                    indexes_1 = (distances > thresh)
+                    indexes_2 = (distances <= thresh*2)
+                    indexes = np.asarray( [(indexes_1[i] and indexes_2[i]) for i in xrange(np.size(indexes_1))] )
+
+                    if np.isscalar(thresh):
+                        r1 = (distances[indexes] / thresh)
+                        r2 = (distances[indexes] / thresh) ** 2
+                        r3 = (distances[indexes] / thresh) ** 3
+                    else:
+                        r1 = (distances[indexes] / thresh[indexes])
+                        r2 = (distances[indexes] / thresh[indexes]) ** 2
+                        r3 = (distances[indexes] / thresh[indexes]) ** 3
+
+                    coefficients[indexes] = r2 * (r3/12.0 - r2/2.0) + r3 * (5.0/8.0) + r2 * (5.0/3.0) - r1 * 5.0 + 4.0 - (2.0/3.0) / r1
+
+                elif re.match(r'\Acubic\Z', method, re.IGNORECASE):
+                    coefficients = np.zeros_like(distances)
+                    thresh = radius * 1.8676
+                    indexes = (distances < thresh)
+                    if np.isscalar(thresh):
+                        coefficients[indexes] = (1.0 - (distances[indexes] / thresh) ** 3) ** 3
+                    else:
+                        coefficients[indexes] = (1.0 - (distances[indexes] / thresh[indexes]) ** 3) ** 3
+
+                elif re.match(r'\Aquadro\Z', method, re.IGNORECASE):
+                    coefficients = np.zeros_like(distances)
+                    thresh = radius * 1.7080
+                    indexes = (distances < thresh)
+                    if np.isscalar(thresh):
+                        coefficients[indexes] = (1.0 - (distances[indexes] / thresh) ** 4) ** 4
+                    else:
+                        coefficients[indexes] = (1.0 - (distances[indexes] / thresh[indexes]) ** 4) ** 4
+
+                elif re.match(r'\Astep\Z', method, re.IGNORECASE):
+                    coefficients = np.zeros_like(distances)
+                    indexes = (distances < radius)
+                    coefficients[indexes] = 1.0
+
+                else:
+                    # Shouldn't be reached if we keep the first test.
+                    raise ValueError("The Localization method '%s' is not supported."
+                                     "Supported methods are: %s" % (method, repr(_methods_supported)))
+                #
         else:
-            # Shouldn't be reached if we keep the first test.
-            raise ValueError("The Localization method '%s' is not supported."
-                             "Supported methods are: %s" % (method, repr(_methods_supported)))
-    #
+            # -----------------------------
+            # ZERO Localization Radius:
+            # -----------------------------
+            if verbose:
+                print("*** REMARK ***\n  The localization radius is zero; \n  A delta-function centered at points with distance = 0 is assumed.\n**************")
+            if isscalar(distances):
+                if distances == 0:
+                    coefficients = 1.0
+                else:
+                    coefficients = 0.0
+            else:
+                # Distances is a one dimensional Numpy array
+                coefficients = np.zeros_like(distances, dtype=np.float)
+                coefficients[np.where(distances == 0)] = 1.0
+                #
+            #
     else:
-        #
-        if np.isscalar(radius):
-            pass
-        else:
-            # multiple radii are given. Each will be taken to the corresponding distance point.
-            # distances, and radius have to be of equal sizes
-            radius = np.asarray(radius).squeeze().astype(np.float)
-            if radius.size != distances.size:
-                print(radius.size, distances.size)
-                print("distances, and radius have to be of equal sizes!")
-                raise AssertionError
+        radii = np.array(radius).flatten()
+        if not np.array([isscalar(i) for i in radii]).all():
+            print("Passing an array of radii requires entries to be scalars")
+            raise TypeError
+        if radii.size != distances.size:
+            print("An iterable 'radisu' must be of the same size as distances")
+            raise ValueError
+        # good to go
+        coefficients = np.zeros_like(distances)
+        for ind, [_radius, _distance] in enumerate(zip(radii, distances)):
+            coefficients[ind] = calculate_localization_coefficients(_radius, _distance, method=method, verbose=verbose)
 
-        #  distances is of dimension greater than one. vector is assumed
-        if re.match(r'\Agauss\Z', method, re.IGNORECASE):
-            # print("distances", distances)
-            # print("radius", radius)
-            coefficients = np.exp(-0.5*((distances/radius)**2))
-
-        elif re.match(r'\Aexp3\Z', method, re.IGNORECASE):
-            coefficients = np.exp(-0.5 * (distances/radius) ** 3);
-
-        elif re.match(r'\Acosine\Z', method, re.IGNORECASE):
-            coefficients = np.zeros_like(distances)
-            thresh = radius * 2.3167
-            indexes = (distances <= thresh)
-            if np.isscalar(thresh):
-                red = distances[indexes] / thresh
-            else:
-                red = distances[indexes] / thresh[indexes]
-            coefficients[indexes] = (1 + np.cos(red*np.pi)) / 2.0
-
-        elif re.match(r'\Acosine(_|-)*squared\Z', method, re.IGNORECASE):
-            coefficients = np.zeros_like(distances)
-            thresh = radius * 3.2080
-            indexes = (distances <= thresh)
-            if np.isscalar(thresh):
-                red = distances[indexes] / thresh
-            else:
-                red = distances[indexes] / thresh[indexes]
-            coefficients[indexes] = ((1 + np.cos(red*np.pi)) / 2.0) ** 2
-
-        elif re.match(r'\Agaspari(_|-)*cohn\Z', method, re.IGNORECASE):
-            coefficients = np.zeros_like(distances)
-            thresh = radius * 1.7386
-            indexes = (distances <= thresh)
-            # print('indexes', indexes)
-            if np.isscalar(thresh):
-                r2 = (distances[indexes] / thresh) ** 2
-                r3 = (distances[indexes] / thresh) ** 3
-            else:
-                r2 = (distances[indexes] / thresh[indexes]) ** 2
-                r3 = (distances[indexes] / thresh[indexes]) ** 3
-
-            coefficients[indexes] = 1.0 + r2 * (-r3/4.0 + r2/2.0) + r3 * (5.0/8.0) - r2 * (5.0/3.0)
-
-            indexes_1 = (distances > thresh)
-            indexes_2 = (distances <= thresh*2)
-            indexes = np.asarray( [(indexes_1[i] and indexes_2[i]) for i in xrange(np.size(indexes_1))] )
-
-            if np.isscalar(thresh):
-                r1 = (distances[indexes] / thresh)
-                r2 = (distances[indexes] / thresh) ** 2
-                r3 = (distances[indexes] / thresh) ** 3
-            else:
-                r1 = (distances[indexes] / thresh[indexes])
-                r2 = (distances[indexes] / thresh[indexes]) ** 2
-                r3 = (distances[indexes] / thresh[indexes]) ** 3
-
-            coefficients[indexes] = r2 * (r3/12.0 - r2/2.0) + r3 * (5.0/8.0) + r2 * (5.0/3.0) - r1 * 5.0 + 4.0 - (2.0/3.0) / r1
-
-        elif re.match(r'\Acubic\Z', method, re.IGNORECASE):
-            coefficients = np.zeros_like(distances)
-            thresh = radius * 1.8676
-            indexes = (distances < thresh)
-            if np.isscalar(thresh):
-                coefficients[indexes] = (1.0 - (distances[indexes] / thresh) ** 3) ** 3
-            else:
-                coefficients[indexes] = (1.0 - (distances[indexes] / thresh[indexes]) ** 3) ** 3
-
-        elif re.match(r'\Aquadro\Z', method, re.IGNORECASE):
-            coefficients = np.zeros_like(distances)
-            thresh = radius * 1.7080
-            indexes = (distances < thresh)
-            if np.isscalar(thresh):
-                coefficients[indexes] = (1.0 - (distances[indexes] / thresh) ** 4) ** 4
-            else:
-                coefficients[indexes] = (1.0 - (distances[indexes] / thresh[indexes]) ** 4) ** 4
-
-        elif re.match(r'\Astep\Z', method, re.IGNORECASE):
-            coefficients = np.zeros_like(distances)
-            indexes = (distances < radius)
-            coefficients[indexes] = 1.0
-
-        else:
-            # Shouldn't be reached if we keep the first test.
-            raise ValueError("The Localization method '%s' is not supported."
-                             "Supported methods are: %s" % (method, repr(_methods_supported)))
-
+    #
     # print("Getting out of localization coefficients calculator...")
     # print("distances: ", distances)
     # print("radius: ", radius)
     # print("coefficients: ", coefficients)
+    if return_scalar:
+        if isscalar(coefficients):
+            pass
+        else:
+            if len(coefficients) == 1:
+                coefficients = coefficients[0]
+            else:
+                print("The coefficients are expected to be an iterable of length 1, however the results is of size %d " % len(coefficients))
+                raise ValueError
+    #
     return coefficients
-#
+    #
 
-def calculate_mixed_localization_coefficients(radii, distances, method='Gauss'):
+#
+def calculate_mixed_localization_coefficients(radii, distances, method='Gauss', verbose=False):
     """
     Evaluate the spatial decorrelation coefficients based on the passed vector of distances and the method.
     This is different from calculate_localization_coefficients, in the sense that radii is an iterable of two entries,
         the localization radius is the product of each two corresponding radii
 
     Args:
-        radius: decorrelation radius
+        radii: decorrelation space-dependent radii
         distances: vector containing distances based on which decorrelation coefficients are calculated.
         method: Localization mehtod. Methods supported:
             1- Gaussian 'Gauss'
@@ -396,7 +440,6 @@ def calculate_mixed_localization_coefficients(radii, distances, method='Gauss'):
 
     Returns:
         coefficients: a vector containing decorrelation coefficients.
-            If the passed radius, and distances are both scalars, coefficients is scalar too
 
     """
     if not isiterable(radii):
@@ -431,6 +474,7 @@ def calculate_mixed_localization_coefficients(radii, distances, method='Gauss'):
         print("Failed to calculate the localization coefficients!")
         raise TypeError
 
+
     _methods_supported = ['gauss', 'gaspari_cohn']
     #
     if isscalar(distances):
@@ -463,6 +507,8 @@ def calculate_mixed_localization_coefficients(radii, distances, method='Gauss'):
     # print("radius", radius)
     # print("distances", distances)
     # coefficients = np.zeros_like(distances)
+
+
     #
     if np.size(distances)==1:
         if isscalar(li) and isscalar(lj):
@@ -474,87 +520,114 @@ def calculate_mixed_localization_coefficients(radii, distances, method='Gauss'):
                 print("Radii are expected to be either scalars, or iterables of lenght 1!, NOT %s and %s " % (type(li), type(lj)))
                 raise TypeError
 
-        # a scalar is passed in this case...
-        if re.match(r'\Agauss\Z', method, re.IGNORECASE):
-            coefficients = np.exp(-0.5*((distances)**2)/(li*lj))
+        if li*lj != 0:
+            # --------------------------------
+            # None-ZERO Localization Radii product:
+            # --------------------------------
+            # a scalar is passed in this case...
+            if re.match(r'\Agauss\Z', method, re.IGNORECASE):
+                coefficients = np.exp(-0.5*((distances)**2)/(li*lj))
 
-        elif re.match(r'\Agaspari(_|-)*cohn\Z', method, re.IGNORECASE):
-            thresh = (li*lj) * 1.7386
-            if distances <= thresh:
-                red = distances/thresh
-                r2 = red ** 2
-                r3 = red ** 3
-                coefficients = 1.0 + r2 * (-r3/4.0 + r2/2.0) + r3 * (5.0/8.0) - r2 * (5.0/3.0)
-            elif distances <= thresh*2:
-                red = distances/thresh
-                r1 = red
-                r2 = red ** 2
-                r3 = red ** 3
-                coefficients = r2 * (r3/12.0 - r2/2.0) + r3 * (5.0/8.0) + r2 * (5.0/3.0) - r1 * 5.0 + 4.0 - (2.0/3.0) / r1
+            elif re.match(r'\Agaspari(_|-)*cohn\Z', method, re.IGNORECASE):
+                thresh = (li*lj) * 1.7386
+                if distances <= thresh:
+                    red = distances/thresh
+                    r2 = red ** 2
+                    r3 = red ** 3
+                    coefficients = 1.0 + r2 * (-r3/4.0 + r2/2.0) + r3 * (5.0/8.0) - r2 * (5.0/3.0)
+                elif distances <= thresh*2:
+                    red = distances/thresh
+                    r1 = red
+                    r2 = red ** 2
+                    r3 = red ** 3
+                    coefficients = r2 * (r3/12.0 - r2/2.0) + r3 * (5.0/8.0) + r2 * (5.0/3.0) - r1 * 5.0 + 4.0 - (2.0/3.0) / r1
+                else:
+                    coefficients = 0.0
             else:
-                coefficients = 0.0
+                # Shouldn't be reached if we keep the first test.
+                raise ValueError("The Localization method '%s' is not supported."
+                                 "Supported methods are: %s" % (method, repr(_methods_supported)))
         else:
-            # Shouldn't be reached if we keep the first test.
-            raise ValueError("The Localization method '%s' is not supported."
-                             "Supported methods are: %s" % (method, repr(_methods_supported)))
+            # --------------------------------
+            # ZERO Localization Radii product:
+            # --------------------------------
+            if verbose:
+                print("*** REMARK ***\n  The localization radius is zero; \n  A delta-function centered at points with distance = 0 is assumed.\n**************")
+            if isscalar(distances):
+                if distances == 0:
+                    coefficients = 1.0
+                else:
+                    coefficients = 0.0
+            else:
+                coefficients = np.zeros_like(distances, dtype=np.float)
+                coefficients[np.where(distances==0)] = 1.0
     #
     else:
-        #
-        if isscalar(li) and isscalar(lj):
+        
+        if isscalar(li):
+            li = np.ones(distances.size, dtype=type(li)) * li
+        if isscalar(lj):
+            lj = np.ones(distances.size, dtype=type(lj)) * lj
+
+        if not (li.size == lj.size == distances.size):
+            print("Radii are expected to be either scalars, or iterables of the same length as distances")
+            raise TypeError
+        
+        if True:
+            coefficients = np.zeros_like(distances)
+            # recurssion...
+            for ind, [_li, _lj, _dist] in enumerate(zip(li, lj, distances)):
+                coefficients[ind] = calculate_mixed_localization_coefficients([_li, _lj], _dist, method=method)
             pass
         else:
-            if len(li) != len(lj):
-                print("Radii are expected to be either scalars, or iterables of the same length")
-                raise TypeError
+            # TODO: Remove after debugging:
+            #  distances is of dimension greater than one. vector is assumed
+            if re.match(r'\Agauss\Z', method, re.IGNORECASE):
+                # print("distances", distances)
+                # print("radii", radii)
+                coefficients = np.exp(-0.5*((distances)**2)/(li*lj))
 
-        #  distances is of dimension greater than one. vector is assumed
-        if re.match(r'\Agauss\Z', method, re.IGNORECASE):
-            # print("distances", distances)
-            # print("radii", radii)
-            coefficients = np.exp(-0.5*((distances)**2)/(li*lj))
+            elif re.match(r'\Agaspari(_|-)*cohn\Z', method, re.IGNORECASE):
+                coefficients = np.zeros_like(distances)
+                thresh = (li*lj) * 1.7386
+                indexes = (distances <= thresh)
+                # print('indexes', indexes)
+                if np.isscalar(thresh):
+                    r2 = (distances[indexes] / thresh) ** 2
+                    r3 = (distances[indexes] / thresh) ** 3
+                else:
+                    r2 = (distances[indexes] / thresh[indexes]) ** 2
+                    r3 = (distances[indexes] / thresh[indexes]) ** 3
 
-        elif re.match(r'\Agaspari(_|-)*cohn\Z', method, re.IGNORECASE):
-            coefficients = np.zeros_like(distances)
-            thresh = (li*lj) * 1.7386
-            indexes = (distances <= thresh)
-            # print('indexes', indexes)
-            if np.isscalar(thresh):
-                r2 = (distances[indexes] / thresh) ** 2
-                r3 = (distances[indexes] / thresh) ** 3
+                coefficients[indexes] = 1.0 + r2 * (-r3/4.0 + r2/2.0) + r3 * (5.0/8.0) - r2 * (5.0/3.0)
+
+                indexes_1 = (distances > thresh)
+                indexes_2 = (distances <= thresh*2)
+                indexes = np.asarray( [(indexes_1[i] and indexes_2[i]) for i in xrange(np.size(indexes_1))] )
+
+                if np.isscalar(thresh):
+                    r1 = (distances[indexes] / thresh)
+                    r2 = (distances[indexes] / thresh) ** 2
+                    r3 = (distances[indexes] / thresh) ** 3
+                else:
+                    r1 = (distances[indexes] / thresh[indexes])
+                    r2 = (distances[indexes] / thresh[indexes]) ** 2
+                    r3 = (distances[indexes] / thresh[indexes]) ** 3
+
+                coefficients[indexes] = r2 * (r3/12.0 - r2/2.0) + r3 * (5.0/8.0) + r2 * (5.0/3.0) - r1 * 5.0 + 4.0 - (2.0/3.0) / r1
+
             else:
-                r2 = (distances[indexes] / thresh[indexes]) ** 2
-                r3 = (distances[indexes] / thresh[indexes]) ** 3
-
-            coefficients[indexes] = 1.0 + r2 * (-r3/4.0 + r2/2.0) + r3 * (5.0/8.0) - r2 * (5.0/3.0)
-
-            indexes_1 = (distances > thresh)
-            indexes_2 = (distances <= thresh*2)
-            indexes = np.asarray( [(indexes_1[i] and indexes_2[i]) for i in xrange(np.size(indexes_1))] )
-
-            if np.isscalar(thresh):
-                r1 = (distances[indexes] / thresh)
-                r2 = (distances[indexes] / thresh) ** 2
-                r3 = (distances[indexes] / thresh) ** 3
-            else:
-                r1 = (distances[indexes] / thresh[indexes])
-                r2 = (distances[indexes] / thresh[indexes]) ** 2
-                r3 = (distances[indexes] / thresh[indexes]) ** 3
-
-            coefficients[indexes] = r2 * (r3/12.0 - r2/2.0) + r3 * (5.0/8.0) + r2 * (5.0/3.0) - r1 * 5.0 + 4.0 - (2.0/3.0) / r1
-
-        else:
-            # Shouldn't be reached if we keep the first test.
-            raise ValueError("The Localization method '%s' is not supported."
-                             "Supported methods are: %s" % (method, repr(_methods_supported)))
+                # Shouldn't be reached if we keep the first test.
+                raise ValueError("The Localization method '%s' is not supported."
+                                 "Supported methods are: %s" % (method, repr(_methods_supported)))
 
     # print("Getting out of localization coefficients calculator...")
     # print("distances: ", distances)
     # print("radii: ", radii)
     # print("coefficients: ", coefficients)
     return coefficients
+
 #
-
-
 def inflate_ensemble(ensemble, inflation_factor, in_place=True):
     """
     Apply inflation on an ensemble of states
@@ -779,22 +852,27 @@ def inflate_ensemble(ensemble, inflation_factor, in_place=True):
 
 
 def rank_hist(ensembles_repo, reference_repo, first_var=0,
-                                              last_var=None,
-                                              var_skp=1,
-                                              draw_hist=False,
-                                              target_fig=None,
-                                              target_ax=None,
-                                              hist_type='relfreq',
-                                              first_time_ind=0,
-                                              last_time_ind=None,
-                                              time_ind_skp=1,
-                                              hist_title=None,
-                                              hist_max_height=None,
-                                              font_size=None,
-                                              ignore_indexes=None,
-                                              add_fitted_beta=False,
-                                              add_uniform=False,
-                                              zorder=0):
+              last_var=None,
+              var_skp=1,
+              draw_hist=False,
+              target_fig=None,
+              target_ax=None,
+              hist_type='relfreq',
+              first_time_ind=0,
+              last_time_ind=None,
+              time_ind_skp=1,
+              hist_title=None,
+              hist_max_height=None,
+              font_size=None,
+              color='skyblue',
+              edgecolor='skyblue',
+              ignore_indexes=None,
+              add_fitted_beta=False,
+              add_uniform=False,
+              file_name=None,
+              zorder=0,
+              verbose=False
+             ):
     """
     Calculate the rank statistics of the true solution/observations w.r.t
     an ensemble of states/observations
@@ -821,6 +899,7 @@ def rank_hist(ensembles_repo, reference_repo, first_var=0,
         ignore_indexes: 1d iterable stating indexes of the state vector to ignore while calculating frequencies/relative frequencies
         add_fitted_beta: fit a beta disgtribution, and add to plot (only if draw_hist is True)
         add_uniform: add a perfect uniform distribution, and add to plot (only if draw_hist is True)
+        file_name: save figure to file given this name/path (format is inferred from file extension, otherwise, 'eps' is used
         zorder: order of the bars on the figure
 
     Returns:
@@ -846,6 +925,8 @@ def rank_hist(ensembles_repo, reference_repo, first_var=0,
     if time_ind_skp is not None:
         assert isinstance(time_ind_skp, int), "'time_ind_skp' has to be either None, or an integer!"
     #
+    if verbose:
+        print("Constructing Rank Histogram")
 
     if ignore_indexes is not None:
         local_ignore_inds = np.asarray(ignore_indexes).squeeze()
@@ -937,8 +1018,11 @@ def rank_hist(ensembles_repo, reference_repo, first_var=0,
     ranksmat_length = ensemble_size + 1
     ranks_freq = np.zeros(ranksmat_length, dtype=int)
 
-    #
+
     # Start calculating ranks (of truth) w.r.t ensembles:
+    if verbose:
+        print("Calculating Ranks")
+
     if nobs_times < 1:
         print("How is that possible? 'nobs_times is [%d] < 1 ?!'" % nobs_times)
         raise ValueError
@@ -954,10 +1038,16 @@ def rank_hist(ensembles_repo, reference_repo, first_var=0,
                 pass
             augmented_vec = loc_ensembles_repo[var_ind, :]
             ref_sol = loc_reference_repo[var_ind]
-            augmented_vec = np.append(augmented_vec, ref_sol).squeeze()
-
-            rnk = np.where(np.argsort(augmented_vec) == augmented_vec.size-1)[0][0]
-            # rnk = np.argsort(augmented_vec)[-1]  # get rank of true/ref state/observation
+            augmented_vec = np.append(ref_sol, augmented_vec).flatten()
+            rnk = np.where(np.sort(augmented_vec) == ref_sol)[0]
+            if rnk.size > 1:
+                rnk = np.random.choice(x, size=1)[0]
+            elif rnk.size == 1:
+                rnk = rnk[0]
+            else:
+                print("Impossible situation in rank histogram; truth is lost after augmentation!")
+                raise ValueError
+            # rnk = np.argsort(augmented_vec)[0]  # get rank of true/ref state/observation
 
             ranks_freq[rnk] += 1
             #
@@ -974,11 +1064,24 @@ def rank_hist(ensembles_repo, reference_repo, first_var=0,
                     pass
                 augmented_vec = loc_ensembles_repo[var_ind, :, time_ind]
                 ref_sol = loc_reference_repo[var_ind, time_ind]
-                augmented_vec = np.append(augmented_vec, ref_sol).squeeze()
-
-                rnk = np.where(np.argsort(augmented_vec) == augmented_vec.size-1)[0][0]
-                # rnk = np.argsort(augmented_vec)[-1]  # get rank of true/ref state/observation
-
+                augmented_vec = np.append(ref_sol, augmented_vec).flatten()
+                rnk = np.where(np.sort(augmented_vec) == ref_sol)[0]
+                # rnk = np.where(np.isclose(np.sort(augmented_vec), ref_sol))[0]
+                if verbose:
+                    print("*"*50)
+                    print("ref_sol: ", ref_sol)
+                    print("augmented_vec: ", augmented_vec)
+                    print("Ranks: ", rnk)
+                if rnk.size > 1:
+                    rnk = np.random.choice(rnk, size=1)[0]
+                elif rnk.size == 1:
+                    rnk = rnk[0]
+                else:
+                    print("Impossible situation in rank histogram; truth is lost after augmentation!")
+                    raise ValueError
+                # rnk = np.argsort(augmented_vec)[0]  # get rank of true/ref state/observation
+                if verbose:
+                    print("Final rank of truth >>> ", rnk)
                 ranks_freq[rnk] += 1
                 #
 
@@ -989,6 +1092,8 @@ def rank_hist(ensembles_repo, reference_repo, first_var=0,
     bins_bounds = np.arange(ensemble_size+1)
 
     if draw_hist:
+        if verbose:
+            print("Plotting the rank histogram...")
         beta_label = None
         u_label = None
 
@@ -1012,7 +1117,7 @@ def rank_hist(ensembles_repo, reference_repo, first_var=0,
         elif target_ax is None:
             fig_hist = target_fig
             ax = fig_hist.gca()
-        ax.bar(bins_bounds , bins_heights, width=1, color='green', edgecolor='black', zorder=zorder)
+        ax.bar(bins_bounds , bins_heights, width=1, color=color, edgecolor=edgecolor, zorder=zorder)
 
         # Adjust limits of the plot as necessary:
         ax.set_xlim(-0.5, ensemble_size+0.5)
@@ -1147,10 +1252,21 @@ def rank_hist(ensembles_repo, reference_repo, first_var=0,
                 ax.legend(loc='upper center', ncol=2, bbox_to_anchor=(0.5, 1.075), fancybox=True, shadow=True)
 
         # Draw everthing
+        if file_name is not None:
+            fname, fext = os.path.splitext(file_name)
+            if len(fext)>0:
+                format = fext.strip('. ')
+            else:
+                format = 'eps'
+            file_name = '%s.%s' % (fname, fext)
+            plt.savefig(file_name, dpi=500, facecolor='w', format=format, transparent=True, bbox_inches='tight')
         plt.draw()
         #
     else:
         fig_hist = None
+
+    if verbose:
+        print("...done...")
     #
     return ranks_freq, ranks_rel_freq, bins_bounds , fig_hist
     #

@@ -27,9 +27,9 @@
         Define necessary global variables needed for access by DATeS modules, and scripts.
         An alternative to this procedure, will be to export to Environment variables.
         This module should be imported, and the method 'initialize_dates' should be executed prior to further use of DATeS by your driver script.
-        
+
         Also, this module import all global variables for the package from src.dates_constants
-    
+
 
     Example: initialize DATeS with default settings:
     ------------------------------------------------
@@ -60,15 +60,15 @@ _def_rel_paths_list = ['src', 'test_cases']
 def add_src_paths(add_all_dirs=True, relative_paths_list=None):
     """
     Add directories containing source files to the system directories.
-    All package-specified paths are inserted in the beginning of the system paths' list 
+    All package-specified paths are inserted in the beginning of the system paths' list
     for proper import and faster access of DATeS modules.
-    
+
     Args:
-        add_all_dirs: bool (default is True). 
-            * If True: all DATeS subdirectories (including models, test_cases, etc.) will be added to the sys.path. 
+        add_all_dirs: bool (default is True).
+            * If True: all DATeS subdirectories (including models, test_cases, etc.) will be added to the sys.path.
             * If False: only necessary directories (passed to 'relative_paths_list') will be added.
               This requires later update if other directories are added to the package.
-                                  
+
         relative_paths_list: list (default is None)
         A list of relative paths to add to sys.path to give access to DATeS modules.
         This shoudl be used only if you know all necessary paths in DATeS.
@@ -76,7 +76,7 @@ def add_src_paths(add_all_dirs=True, relative_paths_list=None):
 
     Returns:
         None
-    
+
     """
     #
     # Input Assertion
@@ -84,7 +84,7 @@ def add_src_paths(add_all_dirs=True, relative_paths_list=None):
     if not isinstance(add_all_dirs, bool):
         print("Input argument 'add_all_dirs' has to be a boolean. Passed %s !" % repr(add_all_dirs))
         raise AssertionError()
-        
+
     if relative_paths_list is not None:
         if not isinstance(relative_paths_list, list):
             print("Input argument 'relative_paths_list' has to be None or a list. \
@@ -94,14 +94,10 @@ def add_src_paths(add_all_dirs=True, relative_paths_list=None):
     #
     if add_all_dirs:
         sys.path.insert(2,DATES_ROOT_PATH)
+        _add_subdirs_to_sys(os.path.join(DATES_ROOT_PATH,'src'))
+        _add_subdirs_to_sys(os.path.join(DATES_ROOT_PATH,'test_cases'))
+        _add_subdirs_to_sys(os.path.join(DATES_ROOT_PATH,'experimental_test_cases'))
         #
-        for root, _, _ in os.walk(os.path.join(DATES_ROOT_PATH,'src')):
-            # '/.' insures to ignore any subdirectory of special directory such as '.git' subdirs.
-            # '__' insures that the iterator ignores any cashed subdirectory.
-            if os.path.isdir(root) and not ('/.' in root or '__' in root):
-                # in case this is not the initial run. We don't want  to add duplicates to the system paths' list.
-                if root not in sys.path:
-                    sys.path.insert(2, root)
 
     else:
         # This is a list of source directories to be manually maintained if this route is chosen.
@@ -111,7 +107,7 @@ def add_src_paths(add_all_dirs=True, relative_paths_list=None):
             relative_paths_list = _def_rel_paths_list
         else:
             pass
-            
+
         for rel_path in relative_paths_list:
             # validate string of the relative path
             rel_path = rel_path.strip()
@@ -130,29 +126,40 @@ def add_src_paths(add_all_dirs=True, relative_paths_list=None):
                 raise IOError()
 
 
+def _add_subdirs_to_sys(path):
+    """
+    """
+    for root, _, _ in os.walk(path):
+        # '/.' insures to ignore any subdirectory of special directory such as '.git' subdirs.
+        # '__' insures that the iterator ignores any cashed subdirectory.
+        if os.path.isdir(root) and not ('/.' in root or '__' in root):
+            # in case this is not the initial run. We don't want  to add duplicates to the system paths' list.
+            if root not in sys.path:
+                sys.path.insert(2, root)
+
 #
-def initialize_dates(add_all_dirs=True, relative_paths_list=None, random_seed=None):
+def initialize_dates(add_all_dirs=True, relative_paths_list=None, random_seed=None, verbose=None):
     """
     Setup up Environment Variables and add source directories to PYTHONPATH.
-    
+
     Args:
-        add_all_dirs: bool (True/False). 
+        add_all_dirs: bool (True/False).
             * If True: all DATeS subdirectories (including models, test_cases, etc.)
-              will be added to the sys.path. 
+              will be added to the sys.path.
             * If False: only necessary directories (passed to 'relative_paths_list') will be added.
               This requires later update if other directories are added to the package.
-                              
+
         relative_paths_list: list (default is None)
         A list of relative paths to add to sys.path to give access to DATeS modules.
         This shoudl be used only if you know all necessary paths in DATeS.
         Used only if add_all_dirs==False
-                              
+
         random_seed: integer (default is None)
         An integer used to reset the seed of NumPy random number generator globally.
 
     Returns:
         None
-    
+
     """
     #
     # Input Assertion
@@ -160,13 +167,13 @@ def initialize_dates(add_all_dirs=True, relative_paths_list=None, random_seed=No
     if not isinstance(add_all_dirs, bool):
         print("Input argument 'add_all_dirs' has to be a boolean. Passed %s !" % repr(add_all_dirs))
         raise AssertionError()
-        
+
     if relative_paths_list is not None:
         if not isinstance(relative_paths_list, list):
             print("Input argument 'relative_paths_list' has to be None or a list. \
                    Passed %s !" % repr(relative_paths_list))
             raise AssertionError()
-        
+
     if random_seed is not None:
         if not isinstance(random_seed, int):
             print("Input argument 'random_seed' has to be an integer. \
@@ -174,7 +181,7 @@ def initialize_dates(add_all_dirs=True, relative_paths_list=None, random_seed=No
             raise AssertionError()
     #--------------------------
     #
-    # Try to retrieve, then set/update the root directory of the DATeS package ('DATES_ROOT_PATH') 
+    # Try to retrieve, then set/update the root directory of the DATeS package ('DATES_ROOT_PATH')
     # to the location of this file:
     env_DATeS_root_path = os.getenv("DATES_ROOT_PATH")
     if env_DATeS_root_path is None or env_DATeS_root_path != DATES_ROOT_PATH:
@@ -184,9 +191,9 @@ def initialize_dates(add_all_dirs=True, relative_paths_list=None, random_seed=No
     env_DATeS_eps = os.getenv("DATES_TIME_EPS")
     if env_DATeS_eps is None or env_DATeS_eps != DATES_TIME_EPS:
         os.environ['DATES_TIME_EPS'] = str(DATES_TIME_EPS)
-    
+
     # Recursively add directories containing source files to be used by DATeS
-    add_src_paths(add_all_dirs=add_all_dirs, 
+    add_src_paths(add_all_dirs=add_all_dirs,
                   relative_paths_list=relative_paths_list
                   )
 
@@ -195,8 +202,19 @@ def initialize_dates(add_all_dirs=True, relative_paths_list=None, random_seed=No
         np.random.seed(random_seed)
 
 
+    # set general DATeS verbosity if passed, otherwise it will be read from DATeS constants module
+    env_DATeS_verbose = os.getenv("DATES_VERBOSE")
+    if str(verbose) == 'None':
+        verbose = DATES_VERBOSE
+    elif str(verbose) == 'True' or str(verbose) == 'False':
+        pass
+    else:
+        verbose = False
+
+    if env_DATeS_verbose is None or env_DATeS_verbose != str(verbose):
+        os.environ['DATES_VERBOSE'] = verbose
+
 #
 if __name__ == "__main__":
     # Initialize DATeS with default settings
     initialize_dates()
-    

@@ -44,13 +44,13 @@ from scipy.sparse.linalg import LinearOperator
 import scipy.optimize as optimize  # may be replaced with dolfin_adjoint or PyIPOpt later!
 
 import dates_utility as utility
-from smoothers_base import SmoothersBase
+from smoothers_base import SmootherBase
 from state_vector_base import StateVectorBase as StateVector
 from state_matrix_base import StateMatrixBase as StateMatrix
 from observation_vector_base import ObservationVectorBase as ObservationVector
 
 
-class FDVAR(SmoothersBase):
+class FDVAR(SmootherBase):
     """
     A class implementing the vanilla 4D-Var DA scheme.
 

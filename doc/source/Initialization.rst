@@ -22,7 +22,7 @@ dates.dates_setup
     :name: initilize_dates
          
     import dates_setup
-    dates_setup.initialize_dates()
+    dates_setup.initilize_dates()
        
            
 Run a driver; examples

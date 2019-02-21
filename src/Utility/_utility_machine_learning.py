@@ -30,11 +30,8 @@ import numpy as np
 
 #
 try:
-    try:
-        from sklearn.mixture import GaussianMixture as GMM_Model  # new implementation of GMM in scikit-learn
-    except(ImportError):
-        from sklearn.mixture import GMM as GMM_Model  # this is deprecated in 0.18 and will be removed in 0.20.
-    from sklearn.mixture import VBGMM as VBGMM_Model
+    from sklearn.mixture import GaussianMixture as GMM_Model  # new implementation of GMM in scikit-learn
+    from sklearn.mixture import BayesianGaussianMixture as VBGMM_Model
 except ImportError:
     print("Failed to Import sklearn. SciKit-learn tools won't work in this session... Proceeding ...")
 

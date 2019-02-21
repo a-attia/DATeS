@@ -1,0 +1,10 @@
+
+=============================================================================================
+The test drivers in this directory are experimental, 
+e.g., used for producing results in recent publications.
+
+To use any of these drivers, copy all of them to the root directory, and use them from there.
+
+In V2, we will allow all drivers to run from any place under the DATeS hierarchy.
+=============================================================================================
+

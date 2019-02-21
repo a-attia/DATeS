@@ -29,13 +29,14 @@
 import numpy as np
 import scipy.sparse as sparse
 import scipy.io as sio
-import os
+import os, sys
 import re
 
 import dates_utility as utility
 from models_base import ModelsBase
 
 # FATODE integrator (Experimental):
+import scipy.integrate as scipy_integrate
 import fatode_erk_adjoint
 import fatode_erk_forward
 from fatode_erk_forward import FatODE_ERK_FWD as ForwardIntegrator  # This should be made more flexible...
@@ -53,6 +54,7 @@ from observation_matrix_numpy import ObservationMatrixNumpy as ObservationMatrix
 from observation_matrix_sp_scipy import ObservationMatrixSpSciPy as SparseObservationMatrix
 from error_models_numpy import BackgroundErrorModelNumpy as BackgroundErrorModel
 from error_models_numpy import ObservationErrorModelNumpy as ObservationErrorModel
+from error_models_numpy import ModelErrorModelNumpy as ModelErrorModel
 
 
 class Lorenz96(ModelsBase):
@@ -301,10 +303,10 @@ class Lorenz96(ModelsBase):
             model_err_configs = dict(errors_distribution=self.model_configs['model_errors_distribution'],
                                      model_noise_level=self.model_configs['model_noise_level'],
                                      model_errors_variances=self.model_configs['model_errors_variances'],
-                                     create_errors_correlations=self.model_configs['create_model_errors_correlations'],
+                                     nreate_errors_correlations=self.model_configs['create_model_errors_correlations'],
                                      errors_covariance_method=self.model_configs['model_errors_covariance_method']
                                      )
-            self.create_model_errors_model(configs=model_err_configs)
+            self.create_model_error_model(configs=model_err_configs)
             self._model_errors_steps_per_model_steps = model_errors_steps_per_model_steps
         else:
             self._perfect_model = True
@@ -355,11 +357,10 @@ class Lorenz96(ModelsBase):
             #
             self._observation_indexes = observation_indexes
             self._observation_vector_size = observation_vector_size
-
         # Observation Error model settings and initialization
         obs_err_configs = dict(errors_distribution=self.model_configs['observation_errors_distribution'],
                                observation_noise_level=self.model_configs['observation_noise_level'],
-                               observation_errors_variances=self.model_configs['observation_errors_variances'],
+                               error_variances=self.model_configs['observation_errors_variances'],
                                create_errors_correlations=self.model_configs['create_observation_errors_correlations'],
                                errors_covariance_method=self.model_configs['observation_errors_covariance_method']
                                )
@@ -649,9 +650,9 @@ class Lorenz96(ModelsBase):
         rhs = self.state_vector()
 
         for i in xrange(state_size):
-            j = i+1 if i<state_size-1 else i+1-state_size  # this is i+1 in round-robin fashion
-            #
-            rhs[i] = x[i-1] * (x[j] - x[i-2]) - x[i] + F
+            # j = i+1 if i<state_size-1 else i+1-state_size  # this is i+1 in round-robin fashion
+            # rhs[i] = x[i-1] * (x[j] - x[i-2]) - x[i] + F
+            rhs[i] = x[i-1] * (x[(i+1)%state_size] - x[i-2]) - x[i] + F
         #
         if isinstance(in_state, np.ndarray):
             rhs = rhs.get_numpy_array()
@@ -724,7 +725,7 @@ class Lorenz96(ModelsBase):
         return Jacobian
         #
 
-    def integrate_state(self, initial_state=None, checkpoints=None, step_size=None, rel_tol=1.e-9, abs_tol=1.e-9):
+    def integrate_state(self, initial_state=None, checkpoints=None, step_size=None, rel_tol=None, abs_tol=None):
         """
         March the model state forward in time (backward for negative step or decreasing list).
         checkpoints should be a float scalar (taken as one step) or a list including beginning,end or a full timespan.
@@ -752,7 +753,15 @@ class Lorenz96(ModelsBase):
 
         """
         # Validate parameters:
-        assert isinstance(initial_state, StateVector), "initial_state has to be a StateVector object!"
+        isnp = False
+        if isinstance(initial_state, StateVector):
+            pass
+        elif isinstance(initial_state, np.ndarray):
+            initial_state = self.state_vector(initial_state)
+            isnp = True
+        else:
+            print("initial_state has to be a StateVector object!")
+            raise AssertionError
         local_state = initial_state.copy()  # a local copy of the initial state
 
         #
@@ -788,11 +797,94 @@ class Lorenz96(ModelsBase):
         #
         noise_add_cnt = model_errors_steps_per_model_steps = self.model_configs['model_errors_steps_per_model_steps']
         steps_cntr = 0
-        #
+        
+        # Update Absolute and Relative Tolerance:
+        if abs_tol is not None:
+            if utility.isscalar(abs_tol) and utility.isscalar(self._forward_integrator.integration_configs['atol']):
+                self._forward_integrator.integration_configs['atol'] = abs_tol
+            elif utility.isscalar(abs_tol) and utility.isiterable(self._forward_integrator.integration_configs['atol']):
+                self._forward_integrator.integration_configs['atol'][:] = abs_tol
+            elif utility.isiterable(abs_tol) and utility.isiterable(self._forward_integrator.integration_configs['atol']):
+                if len(abs_tol) != len(self._forward_integrator.integration_configs['atol']) :
+                    print("Length of abs_tol must be equal to %d " % len(self._forward_integrator.integration_configs['atol']))
+                    raise AssertionError
+                else:
+                    self._forward_integrator.integration_configs['atol'][:] = abs_tol[:]
+            else:
+                print("Couldn't set abs_tol!")
+                raise ValueError
+        # 
+        if rel_tol is not None:
+            if utility.isscalar(rel_tol) and utility.isscalar(self._forward_integrator.integration_configs['rtol']):
+                self._forward_integrator.integration_configs['rtol'] = rel_tol
+            elif utility.isscalar(rel_tol) and utility.isiterable(self._forward_integrator.integration_configs['rtol']):
+                self._forward_integrator.integration_configs['rtol'][:] = rel_tol
+            elif utility.isiterable(rel_tol) and utility.isiterable(self._forward_integrator.integration_configs['rtol']):
+                if len(rel_tol) != len(self._forward_integrator.integration_configs['rtol']) :
+                    print("Length of rel_tol must be equal to %d " % len(self._forward_integrator.integration_configs['rtol']))
+                    raise AssertionError
+                else:
+                    self._forward_integrator.integration_configs['rtol'][:] = rel_tol[:]
+            else:
+                print("Couldn't set rel_tol!")
+                raise ValueError
+        
         if self._perfect_model:
             # Forwad Model propagation WITHOUT model noise:
+            if False:
+                trajectory = self._forward_integrator.integrate(local_state, timespan)
+            else:
+                # print("propagating x over time[] :", local_state, (timespan[0], timespan[-1]))
+                local_state_np = local_state.get_numpy_array()
+                rel_tol=1.e-4
+                abs_tol=1.e-8
+                min_step=0.0
+                max_step=0.005
+                first_step=0.005
+                #
+                trajectory = []
+                #
+                res = scipy_integrate.solve_ivp(self.step_forward_function, (timespan[0], timespan[-1]), local_state_np,
+                                                t_eval=timespan,
+                                                method='RK45',
+                                                rtol=rel_tol,
+                                                atol=abs_tol,
+                                                # first_step=first_step,
+                                                # min_step=min_step,
+                                                # max_step=max_step
+                                               )
+                #
+                for t_ind in xrange(timespan.size):
+                    x = res.y[:, t_ind]
+                    trajectory.append(self.state_vector(x.copy()))
+                if False:
+                    trajectory = [local_state.copy()]
+                    print("[%s]Forward Integration [%8.6f -> %8.6f]:" % (self.model_configs['model_name'], timespan[0], timespan[-1]))
+                    for t0, t1 in zip(timespan[:-1], timespan[1:]):
+                        print("\rTime: %8.6f -> %8.6f   " %(t0, t1)),
+                        sys.stdout.flush()
+                        res = scipy_integrate.solve_ivp(self.step_forward_function, (t0, t1), local_state_np,
+                                                        # t_eval=checkpoints,
+                                                        method='RK45',
+                                                        rtol=rel_tol,
+                                                        atol=abs_tol,
+                                                        first_step=first_step,
+                                                        min_step=min_step,
+                                                        max_step=max_step)
 
-            trajectory = self._forward_integrator.integrate(local_state, timespan)
+                        if res.status:
+                            print("Failed to integrate state:", initial_state)
+                            print("Over checkpoints: ", checkpoints)
+                            print("integrator Failed with status : %d" % res.status)
+                            print("Error Message: %s" % res)
+                            raise ValueError
+                        if abs(t1-res.t[-1])>1e-6:
+                            print("Scipy integrator returned time list with last entry: %f, instead of %f" % (res.t[-1], t1))
+                            raise ValueError
+                        else:
+                            local_state_np[:] = res.y[:, -1]
+
+                        trajectory.append(self.state_vector(local_state_np.copy()))
 
         else:
             #
@@ -804,21 +896,23 @@ class Lorenz96(ModelsBase):
             model_errors_steps_per_model_steps = self.model_configs['model_errors_steps_per_model_steps']
             #
             # loop over the local_checkpoints and add model errors when necessary:
-            num_iterations = int(len(local_checkpoints)/model_errors_steps_per_model_steps)
+            num_iterations = int(len(checkpoints)/model_errors_steps_per_model_steps)
             for iter_ind in xrange(num_iterations):
                 init_ind = iter_ind * model_errors_steps_per_model_steps
-                sub_timespan = local_checkpoints[init_ind: init_ind+model_errors_steps_per_model_steps+1]
+                sub_timespan = checkpoints[init_ind: init_ind+model_errors_steps_per_model_steps+1]
+                if len(sub_timespan) <= 1:
+                    break
                 sub_initial_state = trajectory[-1]
-                sub_trajectory = self._time_integrator.integrate(initial_state=sub_initial_state,
-                                                                 checkpoints=sub_timespan,
-                                                                 step_size=model_step_size,
-                                                                 rel_tol=rel_tol,
-                                                                 abs_tol=abs_tol
-                                                                 )
+                sub_trajectory = self._forward_integrator.integrate(sub_initial_state,
+                                                                    checkpoints=sub_timespan,
+                                                                   )
                 model_noise = self.model_error_model.generate_noise_vec()
                 sub_trajectory[-1] = sub_trajectory[-1].add(model_noise)  # add model noise only to the last state in the sub_trajectory
-                trajectory.append(sub_trajectory[1:])
+                trajectory += sub_trajectory[1:]
                 #
+        if isnp:
+            for state_ind in xrange(len(trajectory)):
+                trajectory[state_ind] = trajectory[state_ind].get_numpy_array()
 
         return trajectory
         #
@@ -922,18 +1016,18 @@ class Lorenz96(ModelsBase):
 
         """
         #
-        observation_vector_numpy = in_state[self._observation_indexes]
+        observation_vector_numpy = in_state[np.asarray(self._observation_indexes, dtype=int)]
         oper_type = self._observation_operator_type
         #
-        if oper_type == 'linear':
+        if re.match(r'\Alinear', oper_type, re.IGNORECASE):
             # Just apply the observation operator on the state vector and return an observation vector.
             pass
 
-        elif oper_type == 'quadratic':
+        elif re.match(r'\Aquadratic', oper_type, re.IGNORECASE):
             # raise all observed components of the state vector to power 2
             observation_vector_numpy = np.power(observation_vector_numpy, 2)
 
-        elif oper_type == 'cubic':
+        elif re.match(r'\Acubic', oper_type, re.IGNORECASE):
             # raise all observed components of the state vector to power 2
             observation_vector_numpy = np.power(observation_vector_numpy, 3)
 
@@ -962,7 +1056,7 @@ class Lorenz96(ModelsBase):
         #
         oper_type = self._observation_operator_type
         #
-        if oper_type in ['linear', 'quadratic', 'cubic']:
+        if re.match(r'\A(linear|quadratic|cubic)', oper_type, re.IGNORECASE):
             #
             try:
                 observation_operator = self.observation_operator
@@ -991,7 +1085,7 @@ class Lorenz96(ModelsBase):
 
         """
         oper_type = self._observation_operator_type
-        if oper_type not in Lorenz96.__supported_observation_operators:
+        if not re.match(r'\A(linear|quadratic|cubic)', oper_type, re.IGNORECASE):
             print("The observation operator '%s' is not supported by the Lorenz96 implementation!")
             raise NotImplementedError
         #
@@ -1005,11 +1099,11 @@ class Lorenz96(ModelsBase):
         obs_indexes = self._observation_indexes
         observed_vars = in_state[obs_indexes]  # numpy representation of the observed entries of in_state
         #
-        if oper_type == 'linear':
+        if re.match(r'\Alinear', oper_type, re.IGNORECASE):
             observation_operator_Jacobian[obs_coord, obs_indexes] = 1.0
-        elif oper_type == 'quadratic':
+        elif re.match(r'\Aquadratic', oper_type, re.IGNORECASE):
             observation_operator_Jacobian[obs_coord, obs_indexes] = 2.0 * observed_vars
-        elif oper_type == 'cubic':
+        elif re.match(r'\Acubic', oper_type, re.IGNORECASE):
             observation_operator_Jacobian[obs_coord, obs_indexes] = 3.0 * np.power(observed_vars, 2)
         else:
             print("The observation operator '%s' is not supported by the Lorenz96 implementation!")
@@ -1037,7 +1131,7 @@ class Lorenz96(ModelsBase):
 
         """
         oper_type = self._observation_operator_type
-        if oper_type not in Lorenz96.__supported_observation_operators:
+        if not re.match(r'\A(linear|quadratic|cubic)', oper_type, re.IGNORECASE):
             print("The observation operator '%s' is not supported by the Lorenz96 implementation!")
             raise NotImplementedError
         #
@@ -1046,12 +1140,12 @@ class Lorenz96(ModelsBase):
         #
         obs_indexes = self._observation_indexes
         #
-        if oper_type == 'linear':
+        if re.match(r'\Alinear', oper_type, re.IGNORECASE):
             result_state[obs_indexes] = observation[:]
-        elif oper_type == 'quadratic':
+        elif re.match(r'\Aquadratic', oper_type, re.IGNORECASE):
             observed_vars = in_state[obs_indexes]  # numpy representation of the observed entries of in_state
             result_state[obs_indexes] = 2.0 * np.squeeze(observed_vars) * np.squeeze(observation[:])
-        elif oper_type == 'cubic':
+        elif re.match(r'\Acubic', oper_type, re.IGNORECASE):
             observed_vars = in_state[obs_indexes]  # numpy representation of the observed entries of in_state
             result_state[obs_indexes] = 3.0 * np.power(np.squeeze(observed_vars), 2) * np.squeeze(observation[:])
         else:
@@ -1079,21 +1173,21 @@ class Lorenz96(ModelsBase):
 
         """
         oper_type = self._observation_operator_type
-        if oper_type not in Lorenz96.__supported_observation_operators:
+        if not re.match(r'\A(linear|quadratic|cubic)', oper_type, re.IGNORECASE):
             print("The observation operator '%s' is not supported by the Lorenz96 implementation!")
             raise NotImplementedError
         #
         obs_indexes = self._observation_indexes
         #
         # numpy representation of the result:
-        if oper_type == 'linear':
+        if re.match(r'\Alinear', oper_type, re.IGNORECASE):
             result_observation = np.squeeze(state[obs_indexes])
             #
-        elif oper_type == 'quadratic':
+        elif re.match(r'\Aquadratic', oper_type, re.IGNORECASE):
             observed_vars = np.squeeze(in_state[obs_indexes])
             result_observation = 2.0 * observed_vars * np.squeeze(state[obs_indexes])
             #
-        elif oper_type == 'cubic':
+        elif re.match(r'\Acubic', oper_type, re.IGNORECASE):
             observed_vars = np.squeeze(in_state[obs_indexes])
             result_observation = 3.0 * np.power(observed_vars, 2) * np.squeeze(state[obs_indexes])
             #
@@ -1256,7 +1350,7 @@ class Lorenz96(ModelsBase):
         self.observation_error_model.construct_error_covariances(construct_inverse=True,
                                                                  construct_sqrtm=True,
                                                                  sqrtm_method='cholesky',
-                                                                 observation_checkpoints=np.arange(0, 10, 0.05)
+                                                                 observation_checkpoints=np.arange(0, 3, 0.005)
                                                                  )
                                                                  #
 
@@ -1286,13 +1380,14 @@ class Lorenz96(ModelsBase):
             None
 
         """
+        variance_adjusting_factor = 0.2
         if configs is None:
             configs = dict(errors_distribution=self.model_configs['background_errors_distribution'],
                            background_noise_level=self.model_configs['background_noise_level'],
                            background_errors_variances=self.model_configs['background_errors_variances'],
                            create_errors_correlations=self.model_configs['create_background_errors_correlations'],
                            errors_covariance_method=self.model_configs['background_errors_covariance_method'],
-                           variance_adjusting_factor=0.1
+                           variance_adjusting_factor=variance_adjusting_factor
                            )
         if not configs.has_key('localize_errors_covariances'):
             try:
@@ -1303,8 +1398,8 @@ class Lorenz96(ModelsBase):
             except KeyError:
                 configs.update({'localize_errors_covariances':False})
                 raise
-        else:
-            pass
+
+        configs.update({'variance_adjusting_factor': variance_adjusting_factor})
 
         #
         self.background_error_model = BackgroundErrorModel(self, configs=configs)
@@ -1961,7 +2056,7 @@ class Lorenz3(ModelsBase):
                                      create_model_errors_correlations=self.model_configs['create_model_errors_correlations'],
                                      model_errors_covariance_method=self.model_configs['model_errors_covariance_method']
                                      )
-            self.model_error_model = self.create_model_errors_model(configs=model_err_configs)
+            self.model_error_model = self.create_model_error_model(configs=model_err_configs)
             self._model_errors_steps_per_model_steps = model_errors_steps_per_model_steps
         else:
             self._perfect_model = True
@@ -1974,9 +2069,9 @@ class Lorenz3(ModelsBase):
         def_time_integrator_options = dict(model=self, step_size=self._default_step_size)
         forward_integration_scheme = self.model_configs['forward_integration_scheme'].lower()
         if forward_integration_scheme == 'erk':
-            self._time_integrator = ExplicitTimeIntegrator(def_time_integrator_options)
+            self._forward_integrator = ExplicitTimeIntegrator(def_time_integrator_options)
         elif forward_integration_scheme == 'lirk':
-            self._time_integrator = ImplicitTimeIntegrator(def_time_integrator_options)
+            self._forward_integrator = ImplicitTimeIntegrator(def_time_integrator_options)
         else:
             print("The time integration scheme %s is not defined for this Model!" % forward_integration_scheme)
             raise ValueError
@@ -2336,7 +2431,7 @@ class Lorenz3(ModelsBase):
         return Jacobian
         #
 
-    def integrate_state(self, initial_state=None, checkpoints=None, step_size=None, rel_tol=1.e-9, abs_tol=1.e-9):
+    def integrate_state(self, initial_state=None, checkpoints=None, step_size=None, rel_tol=None, abs_tol=None):
         """
         March the model state forward in time (backward for negative step or decreasing list).
         checkpoints should be a float scalar (taken as one step) or a list including beginning,end or a full timespan.
@@ -2394,14 +2489,44 @@ class Lorenz3(ModelsBase):
         except (ValueError, AttributeError):
             self._perfect_model = False
         #
+        # print("self._perfect_model", self._perfect_model)
+        
+        # Update Absolute and Relative Tolerance:
+        if abs_tol is not None:
+            if utility.isscalar(abs_tol) and utility.isscalar(self._forward_integrator.integration_configs['atol']):
+                self._forward_integrator.integration_configs['atol'] = abs_tol
+            elif utility.isscalar(abs_tol) and utility.isiterable(self._forward_integrator.integration_configs['atol']):
+                self._forward_integrator.integration_configs['atol'][:] = abs_tol
+            elif utility.isiterable(abs_tol) and utility.isiterable(self._forward_integrator.integration_configs['atol']):
+                if len(abs_tol) != len(self._forward_integrator.integration_configs['atol']) :
+                    print("Length of abs_tol must be equal to %d " % len(self._forward_integrator.integration_configs['atol']))
+                    raise AssertionError
+                else:
+                    self._forward_integrator.integration_configs['atol'][:] = abs_tol[:]
+            else:
+                print("Couldn't set abs_tol!")
+                raise ValueError
+        # 
+        if rel_tol is not None:
+            if utility.isscalar(rel_tol) and utility.isscalar(self._forward_integrator.integration_configs['rtol']):
+                self._forward_integrator.integration_configs['rtol'] = rel_tol
+            elif utility.isscalar(rel_tol) and utility.isiterable(self._forward_integrator.integration_configs['rtol']):
+                self._forward_integrator.integration_configs['rtol'][:] = rel_tol
+            elif utility.isiterable(rel_tol) and utility.isiterable(self._forward_integrator.integration_configs['rtol']):
+                if len(rel_tol) != len(self._forward_integrator.integration_configs['rtol']) :
+                    print("Length of rel_tol must be equal to %d " % len(self._forward_integrator.integration_configs['rtol']))
+                    raise AssertionError
+                else:
+                    self._forward_integrator.integration_configs['rtol'][:] = rel_tol[:]
+            else:
+                print("Couldn't set rel_tol!")
+                raise ValueError
+                
         if self._perfect_model:
             # Forwad Model propagation WITHOUT model noise:
-            trajectory = self._time_integrator.integrate(initial_state=initial_state,
-                                                         checkpoints=timespan,
-                                                         step_size=model_step_size,
-                                                         rel_tol=rel_tol,
-                                                         abs_tol=abs_tol
-                                                         )
+            trajectory = self._forward_integrator.integrate(initial_state=initial_state,
+                                                            checkpoints=timespan,
+                                                           )
 
         else:
             # Forwad Model propagation WITH additive model noise:
@@ -2415,15 +2540,12 @@ class Lorenz3(ModelsBase):
                 init_ind = iter_ind * model_errors_steps_per_model_steps
                 sub_timespan = timespan[init_ind: init_ind+model_errors_steps_per_model_steps+1]
                 sub_initial_state = trajectory[-1]
-                sub_trajectory = self._time_integrator.integrate(initial_state=sub_initial_state,
-                                                                 checkpoints=sub_timespan,
-                                                                 step_size=model_step_size,
-                                                                 rel_tol=rel_tol,
-                                                                 abs_tol=abs_tol
-                                                                 )
+                sub_trajectory = self._forward_integrator.integrate(sub_initial_state,
+                                                                    checkpoints=sub_timespan,
+                                                                    )
                 model_noise = self.model_error_model.generate_noise_vec()
                 sub_trajectory[-1] = sub_trajectory[-1].add(model_noise)  # add model noise only to the last state in the sub_trajectory
-                trajectory.append(sub_trajectory[1:])
+                trajectory += sub_trajectory[1:]
                 #
         return trajectory
         #
@@ -2443,15 +2565,15 @@ class Lorenz3(ModelsBase):
 
         """
         try:
-            self._time_integrator
+            self._forward_integrator
         except:
             time_integrator_defined = False
             def_time_integrator_options = dict(model=self, step_size=self._default_step_size)
             forward_integration_scheme = self.model_configs['forward_integration_scheme'].lower()
             if forward_integration_scheme == 'erk':
-                self._time_integrator = ExplicitTimeIntegrator(def_time_integrator_options)
+                self._forward_integrator = ExplicitTimeIntegrator(def_time_integrator_options)
             elif forward_integration_scheme == 'lirk':
-                self._time_integrator = ImplicitTimeIntegrator(def_time_integrator_options)
+                self._forward_integrator = ImplicitTimeIntegrator(def_time_integrator_options)
             else:
                 print("The time integration scheme %s is not defined for this Model!" % forward_integration_scheme)
                 raise ValueError
@@ -2482,7 +2604,7 @@ class Lorenz3(ModelsBase):
             self._perfect_model = False
 
         if not time_integrator_defined:
-            self._time_integrator = None
+            self._forward_integrator = None
         #
         return initial_condition
         #
@@ -2857,6 +2979,657 @@ class Lorenz3(ModelsBase):
                                                                  )
                                                                  #
 
+
+
+class Coupled_Lorenz(Lorenz96):
+    """
+
+    """
+    # Default model configurations
+    _default_model_configs = dict(model_name="Coupled_Lorenz",
+                                  initial_state=None,
+                                  num_prognostic_variables=[8, 32],  # [X, Y's per each X] each of the 8 is coupled to all 32
+                                  model_grid_type=None,
+                                  force=20.0,
+                                  subgrid_varibles_parameters=[1.0, 10.0, 10.0],  # (h, c, b)  c:10, 4
+                                  forward_integration_scheme='erk',
+                                  adjoint_integration_scheme='erk',  # <-- TODO: Update after implementation
+                                  default_step_size=0.005,
+                                  model_errors_distribution='gaussian',
+                                  model_noise_level=0.0,
+                                  model_errors_variances=None,
+                                  create_model_errors_correlations=False,
+                                  model_errors_covariance_localization_function=None,
+                                  model_errors_covariance_localization_radius=None,
+                                  model_errors_covariance_method='empirical',
+                                  model_errors_steps_per_model_steps=0,
+                                  observation_operator_type='linear-coarse',
+                                  observation_vector_size=None,
+                                  observation_indexes=None,
+                                  observation_errors_distribution='gaussian',
+                                  observation_noise_level=0.05,
+                                  observation_errors_variances=None,
+                                  create_observation_errors_correlations=False,
+                                  observation_errors_covariance_localization_function=None,
+                                  observation_errors_covariance_localization_radius=None,
+                                  observation_errors_covariance_method='empirical',
+                                  background_errors_distribution='gaussian',
+                                  background_noise_level=0.08,
+                                  create_background_errors_correlations=True,
+                                  background_errors_variances=None,
+                                  background_errors_covariance_localization_function='gauss',
+                                  background_errors_covariance_localization_radius=4,
+                                  background_errors_covariance_method='empirical'
+                                  )
+
+    __supported_observation_operators = ['linear-coarse', 'linear', 'quadratic', 'cubic']
+    __def_verbose = True
+
+
+    def __init__(self, model_configs=None, output_configs=None):
+
+        # Aggregate passed model configurations with default configurations
+        model_configs = utility.aggregate_configurations(model_configs, Coupled_Lorenz._default_model_configs)
+        self.model_configs = utility.aggregate_configurations(model_configs, ModelsBase._default_model_configs)
+
+        # Aggregate passed output configurations with default configurations
+        self._output_configs = utility.aggregate_configurations(output_configs, ModelsBase._default_output_configs)
+
+        # model verbosity (output level)
+        try:
+            self._verbose = self._output_configs['verbose']
+        except KeyError:
+            self._verbose = Coupled_Lorenz.__def_verbose
+        finally:
+            if self._verbose is None:
+                self._verbose = Coupled_Lorenz.__def_verbose
+
+        #
+        # Model-related settings:
+        # ---------------------------------
+        # Set/update model configurations:
+        prog_vars = self.model_configs['num_prognostic_variables']
+        self._num_prognostic_variables = self.model_configs['num_prognostic_variables']
+        self._state_size = (prog_vars[1]+1) * prog_vars[0]
+        self._num_dimensions = 0
+        self.model_configs.update(dict(force=self.model_configs['force'],
+                                       periodic=True,
+                                       nx=prog_vars[0], dx=1,
+                                       ny=self._state_size, dy=1,
+                                       num_prognostic_variables=prog_vars,
+                                       num_dimensions=2,))
+
+        # Set/update model configurations:
+        self.model_configs.update(dict(periodic=True, nx=1, dx=1,
+                                       num_prognostic_variables=self._num_prognostic_variables,
+                                       num_dimensions=self._num_dimensions,
+                                       )
+                                  )
+        self._model_constants = dict(F=self.model_configs['force'])
+
+        #
+        # Model time integration settings (Forward and Adjoint)
+        # 1- Forward:
+        fwd_integration_scheme = self.model_configs['forward_integration_scheme']
+        if self._verbose:
+            print("Initiating model Forward Integrator [%s]..." % fwd_integration_scheme)
+        #
+        self._default_step_size = self.model_configs['default_step_size']
+        #
+        if fwd_integration_scheme is not None:
+            if re.match(r'\Afwd(_|-)*erk\Z', fwd_integration_scheme, re.IGNORECASE) or \
+                re.match(r'\Aerk(_|-)*fwd\Z', fwd_integration_scheme, re.IGNORECASE)or \
+                re.match(r'\Aerk\Z', fwd_integration_scheme, re.IGNORECASE):
+                #
+                # Get options from fwdtester.py here...
+                fwd_configs = fatode_erk_forward.initialize_forward_configs(self, fwd_integration_scheme)
+                fwd_configs.update({'atol':np.ones(self._state_size)*1e-8,
+                                    'rtol':np.ones(self._state_size)*1e-8
+                                    })
+                #
+                self._forward_integrator = ForwardIntegrator(fwd_configs)
+            else:
+                print("The forward integration/solver scheme %s is not supported by this Model!" \
+                       % fwd_integration_scheme)
+                raise ValueError
+        else:
+            print("There is no Time Integration scheme attached to this model!")
+            print("fwd_integration_scheme is None!")
+            raise ValueError
+
+        if self._verbose:
+            print(" %s Model: Forward Integrator [%s] Is Successfully Initialized." % (self._model_name, fwd_integration_scheme))
+
+        #
+        # 2- Adjoint:
+        adj_integration_scheme = self.model_configs['adjoint_integration_scheme']
+        if self._verbose:
+            print(" %s Model: Initiating Adjoint Integrator [%s]..." % (self._model_name, adj_integration_scheme))
+        #
+        if adj_integration_scheme is not None:
+            if re.match(r'\Aadj(_|-)*erk\Z', adj_integration_scheme, re.IGNORECASE) or \
+                re.match(r'\Aerk(_|-)*adj\Z', adj_integration_scheme, re.IGNORECASE)or \
+                re.match(r'\Aerk\Z', adj_integration_scheme, re.IGNORECASE):
+                #
+                # Get options from adjtester.py here...
+                adj_configs = fatode_erk_adjoint.initialize_adjoint_configs(self, adj_integration_scheme)
+                adj_configs.update({'model':self,
+                                    'fun':self.step_forward_function,
+                                    'jac':self.step_forward_function_Jacobian,
+                                    'atol':np.ones(self._state_size)*1e-8,
+                                    'rtol':np.ones(self._state_size)*1e-8
+                                    })
+                #
+                self._adjoint_integrator = AdjointIntegrator(adj_configs)
+            else:
+                print("The adjoint integration/solver scheme %s is not supported by this Model!" \
+                       % adj_integration_scheme)
+                raise ValueError
+        else:
+            self._adjoint_integrator = None
+
+        if self._verbose:
+            print(" %s Model: Adjoint Integrator [%s] Is Successfully Initialized." % (self._model_name, adj_integration_scheme))
+
+        #
+        # Create reference initial condition
+        initial_state = self.model_configs['initial_state']
+        if initial_state is None:
+            self._reference_initial_condition = self.create_initial_condition()
+        else:
+            self._reference_initial_condition = self.state_vector(np.squeeze(np.asarray(initial_state[:])))
+        #
+        # Model Error model settings and initialization
+        model_errors_steps_per_model_steps = self.model_configs['model_errors_steps_per_model_steps']
+        if model_errors_steps_per_model_steps > 0:
+            self._perfect_model = False
+            model_err_configs = dict(errors_distribution=self.model_configs['model_errors_distribution'],
+                                     model_noise_level=self.model_configs['model_noise_level'],
+                                     model_errors_variances=self.model_configs['model_errors_variances'],
+                                     nreate_errors_correlations=self.model_configs['create_model_errors_correlations'],
+                                     errors_covariance_method=self.model_configs['model_errors_covariance_method']
+                                    )
+            self.create_model_error_model(configs=model_err_configs)
+            self._model_errors_steps_per_model_steps = model_errors_steps_per_model_steps
+        else:
+            self._perfect_model = True
+            self.model_error_model = None
+            self._model_errors_steps_per_model_steps = 0  # Can be removed...
+
+        #
+        # Observation-related settings:
+        # ---------------------------------
+        self._observation_operator_type = self.model_configs['observation_operator_type'].lower()
+        if self._observation_operator_type not in self.__supported_observation_operators:
+            print("The observation operator '%s' is not supported by the Lorenz96 implementation!")
+            raise NotImplementedError
+
+        observation_indexes = self.model_configs['observation_indexes']
+        #
+        if observation_indexes is not None:
+            observation_indexes = np.squeeze(np.asarray(observation_indexes))
+            if min(observation_indexes) < 0  or max(observation_indexes) >= self._state_size:
+                print("Indexes to observe are out of range. Indexes must be such that: %d < Indexes < %d !" % (0, self._state_size))
+                raise IndexError
+            else:
+                self._observation_indexes = observation_indexes
+                self._observation_vector_size = observation_indexes.size
+                #
+        else:
+            if observation_indexes is None:
+                if re.match(r'\A(linear)*(-|_| )*coarse\Z', self._observation_operator_type, re.IGNORECASE):
+                    observation_vector_size = prog_vars[0]
+                    observation_indexes = np.arange(observation_vector_size)
+                # Observations will be linearly spaced if they are less than the
+
+            if observation_indexes is None:
+                observation_vector_size = self.model_configs['observation_vector_size']
+
+                if observation_vector_size is not None and not isinstance(observation_vector_size, int):
+                    print("The option 'observation_vector_size' in the configurations dictionary has to be either None or a positive integer")
+                    raise ValueError
+                elif observation_vector_size is None:
+                    observation_vector_size = self._state_size
+                elif isinstance(observation_vector_size, int):
+                    if observation_vector_size <=0:
+                        print("The option 'observation_vector_size' in the configurations dictionary has to be either None or a positive integer")
+                        raise ValueError
+                    elif observation_vector_size > self._state_size:
+                        observation_vector_size = self._state_size
+                    else:
+                        # The observation vector size is legit
+                        pass
+                #
+                # Generate evenly spaced indexes in the state vector:
+                observation_indexes = np.empty(observation_vector_size, dtype=int)
+                observation_indexes[:]= np.rint(np.linspace(0, self._state_size, observation_vector_size, endpoint=False))
+                # observation_indexes = np.rint(np.linspace(0, self._state_size, observation_vector_size, endpoint=False), out=observation_indexes)
+
+            #
+            self._observation_indexes = observation_indexes
+            self._observation_vector_size = observation_vector_size
+        # Observation Error model settings and initialization
+        obs_err_configs = dict(errors_distribution=self.model_configs['observation_errors_distribution'],
+                               observation_noise_level=self.model_configs['observation_noise_level'],
+                               observation_errors_variances=self.model_configs['observation_errors_variances'],
+                               create_errors_correlations=self.model_configs['create_observation_errors_correlations'],
+                               errors_covariance_method=self.model_configs['observation_errors_covariance_method']
+                               )
+        self.create_observation_error_model(configs=obs_err_configs)
+
+        #
+        # Additional settings
+        # ---------------------------------
+        background_err_configs = dict(errors_distribution=self.model_configs['background_errors_distribution'],
+                                      background_noise_level=self.model_configs['background_noise_level'],
+                                      background_errors_variances=self.model_configs['background_errors_variances'],
+                                      create_errors_correlations=self.model_configs['create_background_errors_correlations'],
+                                      errors_covariance_method=self.model_configs['background_errors_covariance_method']
+                                      )
+        #
+        localize_covariances = self.model_configs['create_background_errors_correlations'] and \
+                               self.model_configs['background_errors_covariance_localization_function'] is not None and \
+                               self.model_configs['background_errors_covariance_localization_radius'] is not None
+        background_err_configs.update({'localize_errors_covariances':localize_covariances})
+
+        self.create_background_error_model(background_err_configs)
+
+        # a placeholder for the sparse Jacobian; this prevents reconstruction
+        self.__Jacobian = None
+
+        #
+        self._initialized = True
+        #
+
+
+    def create_error_models(self, full_model=True):
+        """
+        """
+        prog_vars = self._num_prognostic_variables
+        #
+        # Model Error model settings and initialization
+        model_errors_steps_per_model_steps = self.model_configs['model_errors_steps_per_model_steps']
+        if model_errors_steps_per_model_steps > 0:
+            self._perfect_model = False
+            model_err_configs = dict(errors_distribution=self.model_configs['model_errors_distribution'],
+                                     model_noise_level=self.model_configs['model_noise_level'],
+                                     model_errors_variances=self.model_configs['model_errors_variances'],
+                                     create_errors_correlations=self.model_configs['create_model_errors_correlations'],
+                                     errors_covariance_method=self.model_configs['model_errors_covariance_method']
+                                     )
+            self.create_model_error_model(configs=model_err_configs)
+            self._model_errors_steps_per_model_steps = model_errors_steps_per_model_steps
+        else:
+            self._perfect_model = True
+            self.model_error_model = None
+            self._model_errors_steps_per_model_steps = 0  # Can be removed...
+
+        #
+        # Observation-related settings:
+        # ---------------------------------
+        self._observation_operator_type = self.model_configs['observation_operator_type'].lower()
+        #
+        observation_indexes = self.model_configs['observation_indexes']
+        if observation_indexes is not None:
+            observation_indexes = np.squeeze(np.asarray(observation_indexes))
+            if min(observation_indexes) < 0  or max(observation_indexes) >= self._state_size:
+                print("Indexes to observe are out of range. Indexes must be such that: %d < Indexes < %d !" % (0, self._state_size))
+                raise IndexError
+            else:
+                self._observation_indexes = observation_indexes
+                self._observation_vector_size = observation_indexes.size
+                #
+        else:
+            if 'coarse' in self._observation_operator_type:
+                observation_vector_size = prog_vars[0]
+                observation_indexes = np.arange(observation_vector_size)
+            else:
+                # Observations will be linearly spaced if they are less than the
+                observation_vector_size = self.model_configs['observation_vector_size']
+
+                if observation_vector_size is not None and not isinstance(observation_vector_size, int):
+                    print("The option 'observation_vector_size' in the configurations dictionary has to be either None or a positive integer")
+                    raise ValueError
+                elif observation_vector_size is None:
+                    observation_vector_size = self._state_size
+                elif isinstance(observation_vector_size, int):
+                    if observation_vector_size <=0:
+                        print("The option 'observation_vector_size' in the configurations dictionary has to be either None or a positive integer")
+                        raise ValueError
+                    elif observation_vector_size > self._state_size:
+                        observation_vector_size = self._state_size
+                    else:
+                        # The observation vector size is legit
+                        pass
+                #
+                # Generate evenly spaced indexes in the state vector:
+                observation_indexes = np.empty(observation_vector_size, dtype=int)
+                observation_indexes[:]= np.rint(np.linspace(0, self._state_size, observation_vector_size, endpoint=False))
+                # observation_indexes = np.rint(np.linspace(0, self._state_size, observation_vector_size, endpoint=False), out=observation_indexes)
+                #
+            self._observation_indexes = observation_indexes
+            self._observation_vector_size = observation_vector_size
+
+        # Observation Error model settings and initialization
+        obs_err_configs = dict(errors_distribution=self.model_configs['observation_errors_distribution'],
+                               observation_noise_level=self.model_configs['observation_noise_level'],
+                               observation_errors_variances=self.model_configs['observation_errors_variances'],
+                               create_errors_correlations=self.model_configs['create_observation_errors_correlations'],
+                               errors_covariance_method=self.model_configs['observation_errors_covariance_method']
+                               )
+        self.create_observation_error_model(configs=obs_err_configs)
+
+        #
+        # Additional settings
+        # ---------------------------------
+        background_err_configs = dict(errors_distribution=self.model_configs['background_errors_distribution'],
+                                      background_noise_level=self.model_configs['background_noise_level'],
+                                      background_errors_variances=self.model_configs['background_errors_variances'],
+                                      create_errors_correlations=self.model_configs['create_background_errors_correlations'],
+                                      errors_covariance_method=self.model_configs['background_errors_covariance_method']
+                                      )
+        #
+        localize_covariances = self.model_configs['create_background_errors_correlations'] and \
+                               self.model_configs['background_errors_covariance_localization_function'] is not None and \
+                               self.model_configs['background_errors_covariance_localization_radius'] is not None
+        background_err_configs.update({'localize_errors_covariances':localize_covariances})
+        #
+        self.create_background_error_model(background_err_configs)
+
+
+    def step_forward_function(self, time_point, in_state):
+        """
+        Evaluate the right-hand side of the Coupled_Lorenz model at the given model state (in_state) and time_piont.
+
+        Args:
+            time_point: scalar time instance to evaluate right-hand-side at
+            in_state: current model state to evaluate right-hand-side at
+
+        Returns:
+            rhs: the right-hand side function evaluated at state=in_state, and time=time_point
+
+        """
+        assert isinstance(in_state, (StateVector, np.ndarray)), "in_state passed to (instance of) Lorenz96.step_forward_function() has to be a valid StateVector object"
+        #
+        K, J = self.model_configs['num_prognostic_variables']  # [number of X's, number of Y's per each X]
+        state_size = K * (1+J)
+        in_state_size = len(in_state)
+        #
+        F = self.model_configs['force']
+
+        if in_state_size == state_size:
+            h, c, b = self.model_configs['subgrid_varibles_parameters']
+            # Evaluate the right-hand-side:
+            rhs = self.state_vector()
+            #
+            X = in_state[ :K]
+            Y = in_state[K: ]
+            # TODO: Vectorize
+            for i in xrange(K):  # X's: High-Resolution (Grid-scale) variables
+                rhs[i] = X[i-1] * (X[(i+1)%K]- X[i-2] ) - X[i]
+                rhs[i] += F
+                rhs[i] -= ( float(h)*c/b * np.sum(Y[i*J: (i+1)*J]) )
+                #
+            for i in xrange(J*K):  # Y's: Sub-Grid variables
+                # print((i+1)%(Y.size), (i+2)%(Y.size), i-1, i, int(i/J))
+                rhs[K+i] = -c*b * Y[(i+1)%(Y.size)] * (Y[(i+2)%(Y.size)] - Y[(i-1)])
+                rhs[K+i] -= (c * Y[i] -  float(h)*c/b * X[int(i/J)] )
+                #
+        elif in_state_size == K:
+            X = in_state
+            rhs = self.state_vector(np.empty(K))
+            for i in xrange(K):  # X's: High-Resolution (Grid-scale) variables
+                rhs[i] = -X[i-1] * (X[i-2] - X[(i+1)%K]) - X[i] + F
+        else:
+            print("in_state must be of size %d or %d; received in_state of length %d!" % (K, state_size, in_state_size))
+            raise AssertionError
+            #
+
+        if isinstance(in_state, np.ndarray):
+            rhs = rhs.get_numpy_array()
+            #
+        return rhs
+        #
+
+    def step_forward_function_Jacobian(self, time_point, in_state, create_sparse=True):
+        """
+        The Jacobian of the right-hand side of the model and evaluate it at the given model state.
+
+        Args:
+            time_point: scalar time instance to evaluate Jacobian of the right-hand-side at
+            in_state: current model state to evaluate Jacobian of the right-hand-side at
+            create_sparse (default True): return the Jacobian as a sparse csr_matrix
+
+        Returns:
+            Jacobian: the derivative/Jacobian of the right-hand side function evaluated at
+                state=in_state, and time=time_point
+
+        """
+        raise NotImplementedError("TODO")
+        #
+
+    def create_initial_condition(self, checkpoints=None, initial_vec=None, IC_filename='coupled_lorenz_IC.npy'):
+        """
+        Create and return a (reference) initial condition state for Lorenz3.
+        This is carried out by propagating initial_vec over the timespan in checkpoints, and returning
+            the final state
+
+        Args:
+            checkpoints: an iterable containing burn-in timespan
+            initial_vec: iterable (e.g. array-like or StateVector) containing initial
+            ...
+
+        Returns:
+            initial_condition: StateVector containing a valid initial state for Lorenz3 model
+
+        """
+        num_Xs, num_Ys = self._num_prognostic_variables
+        state_size = self.state_size()
+
+        # try to load the initial condition from file
+        trgt_path = os.path.dirname(__file__)
+        if not IC_filename.lower().endswith('.npy'):
+            IC_filename += '.npy'
+        trgt_filepath = os.path.join(trgt_path, IC_filename)
+        num_prognostic_variables = self.model_configs['num_prognostic_variables']
+        num_Xs = num_prognostic_variables[0]
+        num_Ys = num_prognostic_variables[1]
+
+        if checkpoints is initial_vec is None:
+            # Try to load file
+            try:
+                initial_vec = np.load(trgt_filepath)
+                if self.state_size() == initial_vec.size:
+                    initial_condition = self.state_vector()
+                    initial_condition[:] = initial_vec[:]
+                    print("Initial solution loaded")
+                else:
+                    print("Saved is of size: %d; expected: %d " % (initial_vec.size, self.state_size()))
+                    initial_condition = None
+                    checkpoints = [0.0, 6.0]
+                    #
+                    # get initial condition:
+                    rnd_state = np.random.get_state()
+                    np.random.seed(2345)
+                    initial_vec = np.empty(self.state_size())
+                    Xs = np.linspace(-20, 20, num_Xs)
+                    initial_vec[: num_Xs] = Xs
+                    for i, x_val in enumerate(Xs):
+                        Ys = np.random.randn(num_Ys)/9.0 + x_val
+                        beg = num_Xs + i*num_Ys
+                        end = beg + num_Ys
+                        initial_vec[beg: end] = Ys
+                    np.random.set_state(rnd_state)
+                    #
+            except (IOError):
+                print("Initial solution file not found %s" % trgt_filepath)
+                initial_condition = None
+                checkpoints = [0.0, 6.0]
+                # get initial condition:
+                rnd_state = np.random.get_state()
+                np.random.seed(2345)
+                initial_vec = np.empty(self.state_size())
+                Xs = np.linspace(-20, 20, num_Xs)
+                initial_vec[: num_Xs] = Xs
+                for i, x_val in enumerate(Xs):
+                    Ys = np.random.randn(num_Ys)/9.0 + x_val
+                    beg = num_Xs + i*num_Ys
+                    end = beg + num_Ys
+                    initial_vec[beg: end] = Ys
+                np.random.set_state(rnd_state)
+                #
+        elif checkpoints is None:
+            checkpoints = [0.0, 6.0]
+            initial_condition = None
+            #
+        elif initial_vec is None:
+            initial_condition = None
+            # get initial condition:
+            rnd_state = np.random.get_state()
+            np.random.seed(2345)
+            initial_vec = np.empty(self.state_size())
+            Xs = np.linspace(-20, 20, num_Xs)
+            initial_vec[: num_Xs] = Xs
+            for i, x_val in enumerate(Xs):
+                Ys = np.random.randn(num_Ys)/9.0 + x_val
+                beg = num_Xs + i*num_Ys
+                end = beg + num_Ys
+                initial_vec[beg: end] = Ys
+            np.random.set_state(rnd_state)
+            #
+        else:
+            print("You passed both checkpoints, and initial_vec!")
+            print("It is unclear whether you want to use the passed initial_vec, or use checkpoints to create initial_condition")
+            raise ValueError
+            #
+
+        if initial_condition is None:
+            print("Creating initial solution...")
+            initial_condition = self.state_vector()
+            initial_condition[:] = initial_vec[:]
+
+            try:
+                perfect_model = self._perfect_model
+                self._perfect_model = True
+            except (AttributeError, ValueError, NameError):
+                perfect_model = True
+                self._perfect_model = True
+
+            tmp_trajectory = self.integrate_state(initial_condition, checkpoints)
+            initial_condition = tmp_trajectory[-1]
+
+            # reset the model settings (perfect/non-perfect)
+            if not perfect_model:
+                self._perfect_model = False
+            #
+            # Save initial condition for later use
+            print("Saving the initial condition for later use..."),
+            np.save(trgt_filepath, initial_condition.get_numpy_array())
+            print("Done...")
+            sys.stdout.flush()
+
+            # reset the model settings (perfect/non-perfect)
+            self._perfect_model = perfect_model
+
+        #
+        # print("Done")
+        return initial_condition
+        #
+
+    def _gen_ensemble(self, ensemble_mean, ensemble_size):
+        """
+        """
+        ensemble = []
+        state_size = self.state_size()
+
+        noise_avg = None
+        for ens_ind in xrange(ensemble_size):
+            noise = self.background_error_model.generate_noise_vec()
+            if noise_avg is None:
+                noise_avg = noise.copy()
+            else:
+                noise_avg = noise_avg.add(noise, in_place=True)
+            ensemble.append(noise)
+        noise_avg = noise_avg.scale(1.0/ensemble_size, in_place=True)
+
+        for ens_ind in xrange(ensemble_size):
+            ensemble[ens_ind].axpy(-1.0, noise_avg, in_place=True)
+            ensemble[ens_ind].add(ensemble_mean, in_place=True)
+
+        return ensemble
+
+
+    def create_initial_ensemble(self, ensemble_size, ensemble_mean=None, full_model=True):
+        """
+        Create initial ensemble for Lorenz96 model given the ensemble mean.
+        The ensemble is created by adding random noise from the background errors model.
+
+        Args:
+            ensemble_size: sample size
+            ensemble_mean: StateVector used as the mean of the generated ensemble to which noise is added to
+                create the ensemble
+            ...
+            full_model: used if ensemble_mean is None
+
+        Returns:
+            ensemble: list of StateVector objects serving as an initial background ensemble for Lorenze96 model
+
+        """
+        K, J = self._num_prognostic_variables
+        full_size = K * (J+1)
+        reduced_size = K
+
+        try:
+            self.background_error_model
+        except(ValueError, AttributeError, NameError):
+            print("Initial ensemble cannot be created before creating background error model!")
+            raise ValueError
+        finally:
+            if self.background_error_model is None:
+                print("Initial ensemble cannot be created before creating background error model!")
+                raise ValueError
+        
+        if ensemble_mean is None:
+            forecast_state = self.create_initial_condition()
+            if not full_model:
+                forecast_state = self.state_vector(forecast_state[: reduced_size])
+        else:
+            assert isinstance(ensemble_mean, StateVector), "the passed ensemble mean has to be an instance of StateVector!"
+            forecast_state = ensemble_mean
+        
+        # check state sizes
+        current_state_size = self.state_size()
+        target_state_size = forecast_state.size
+
+        if current_state_size == target_state_size:
+            noise_vec = self.background_error_model.generate_noise_vec()
+            forecast_state = forecast_state.add(noise_vec)
+            ensemble = self._gen_ensemble(forecast_state, ensemble_size)
+        elif current_state_size > target_state_size:
+            if target_state_size == reduced_size and current_state_size == full_size:
+                # model -> reduced, then back
+                self.update_model_resolution('reduced')
+                noise_vec = self.background_error_model.generate_noise_vec()
+                forecast_state = forecast_state.add(noise_vec)
+                ensemble = self._gen_ensemble(forecast_state, ensemble_size)
+                self.update_model_resolution('full')
+            else:
+                print("Inconsistent models' dimensions")
+                print("The reduced model must be of dimension %d, not %d" % (reduced_size, target_state_size))
+                raise ValueError
+        else:
+            if target_state_size == full_size and current_state_size == reduced_size:
+                # model -> full, then back to reduced
+                self.update_model_resolution('full')
+                ensemble = self._gen_ensemble(forecast_state, ensemble_size)
+                self.update_model_resolution('reduced')
+            else:
+                print("Inconsistent models' dimensions")
+                print("The reduced model must be of dimension %d, not %d" % (K, target_state_size))
+                raise ValueError
+
+        return ensemble
+        #
 
 #
 #

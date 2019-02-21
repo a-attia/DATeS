@@ -65,6 +65,7 @@ from models_base import ModelsBase
 
 
 # TODO: Ahmed, It seems the last observation in an observation timespan gets lost! Also, the last window is always empty!!!
+# TODO: Ahmed; Time to update this class to handle ensemble-based smoothers, such as EnKS!
 
 #
 #
@@ -155,7 +156,6 @@ class SmoothingProcess(AssimilationProcess):
             __time_eps = local__time_eps
             # raise ValueError
 
-
     #
     def __init__(self, assimilation_configs=None, output_configs=None):
 
@@ -174,7 +174,6 @@ class SmoothingProcess(AssimilationProcess):
 
         # Create (running) states and times for reference, forecast, and analysis;
         if ref_initial_condition is not None:
-
             # reference and forecast state information:
             self._running_reference_time = experiment_timespan[0]  # This is a forced-assumption
             self._running_reference_state = ref_initial_condition.copy()
@@ -185,14 +184,28 @@ class SmoothingProcess(AssimilationProcess):
 
         #
         self._running_forecast_time = experiment_timespan[0]
-        self._running_forecast_state = self.assimilation_configs['initial_forecast'].copy()
+        try:
+            self._running_forecast_state = self.assimilation_configs['initial_forecast'].copy()
+        except(AttributeError):
+            self._running_forecast_state = None
+        try:  # TODO: This is overkill!
+            self._running_forecast_ensemble = [s.copy for s in self.assimilation_configs['initial_ensemble']
+        except(AttributeError):
+            self._running_forecast_ensemble = None
         #
         self._running_analysis_time = self._running_forecast_time
-        self._running_analysis_state = self.assimilation_configs['initial_forecast'].copy()
-
+        try:
+            self._running_analysis_state = self.assimilation_configs['initial_forecast'].copy()
+        except(AttributeError):
+            self._running_analysis_state = None
+        try:  # TODO: This is overkill!
+            self._running_analysis_ensemble = [s.copy for s in self.assimilation_configs['initial_ensemble']
+        except(TypeError):
+            self._running_analysis_ensemble = None
         #
         # a list of dictionaries that will hold essential information from each assimilation cycle
-        self.assimilation_configs.update({'assimilation_windows_stats':[]})
+        if False:
+            self.assimilation_configs.update({'assimilation_windows_stats':[]})
 
         # Make sure the directory is created and cleaned up at this point...
         self.set_smoothing_output_dir(self.output_configs['file_output_dir'], rel_to_root_dir=True)
@@ -263,35 +276,72 @@ class SmoothingProcess(AssimilationProcess):
                                   'forecast_ensemble': forecast_ensemble,
                                   'analysis_time':analysis_time,
                                   'analysis_timespan':analysis_timespan,
+                                  'analysis_state':None,
+                                  'analysis_ensemble':None
                                   }
         self.smoother.smoother_configs.update(smoothing_configs_dict)
-        #
+
         # 2- update output configs (based on flag and iterations) prioritize local values:
         self.smoother.output_configs.update({'scr_output':scr_output, 'file_output':file_output})
 
-        #
         # Now start the assimilation cycle.
         self.smoother.smoothing_cycle(update_reference=update_reference)
 
-        #
         # retrieve/construct and return analysis trajectory
         try:
             analysis_trajectory = self.smoother.smoother_configs['analysis_trajectory']
         except:
             analysis_trajectory = None
-        finally:
-            if analysis_trajectory is None:
-                #
-                analysis_state = self.smoother.smoother_configs['analysis_state']
-                if analysis_timespan is not None:
-                    analysis_trajectory = self.model.integrate_state(initial_state=analysis_state, checkpoints=analysis_timespan)
-                else:
-                    analysis_trajectory = [analysis_state.copy()]
-                self.smoother.smoother_configs.update({'analysis_trajectory':analysis_trajectory})
-                #
+        try:
+            analysis_ensemble_trajectory = self.smoother.smoother_configs['analysis_ensemble_trajectory']
+        except:
+            analysis_ensemble_trajectory = None
+        
+        analysis_state = self.smoother.smoother_configs['analysis_state']
+        analysis_ensemble = self.smoother.smoother_configs['analysis_ensemble']
+        
+        no_ensembles = False
+        if analysis_ensemble_trajectory is analysis_ensemble is None:
+            no_ensembles = True
+            pass
+        elif analysis_enemble is None:
+            print("How is it possible that an ensemble trajectory is created without an anlysis ensemble!")
+            raise ValueError
+        elif analysis_ensemble_trajcetory is None:
+            # Generate analysis ensemble trajecory from analysis ensemble
+            analysis_ensemble_trajectory = []
+            for state in analysis_ensemble:
+                traject = self.model.integrate_state(initial_state=state, checkpoints=analysis_timespan)
+                analysis_ensemble_trajectory.append([s.copy() for s in traject])
+            self.smoother_configs.update({'analysis_ensemble_trajectory': analysis_ensemble_trajectory})
+        else:
+            # both analysis ensemble and analysis ensemble trajecgtory are given; do nothing
+            pass
+        
+        no_state = False
+        if analysis_trajectory is analysis_state is None:
+            no_state = True
+            pass
+        elif analysis_state is None:
+            print("How is it possible that an analysis trajectory is created without an anlysis state!")
+            raise ValueError
+        elif analysis_trajcetory is None:
+            # Generate analysis trajecory from analysis state
+            analysis_trajectory = []
+            traject = self.model.integrate_state(initial_state=analysis_state, checkpoints=analysis_timespan)
+            self.smoother_configs.update({'analysis_trajectory': traject})
+        else:
+            # both analysis state and analysis trajecgtory are given; do nothing
+            pass
+
+        if no_state and no_ensemble:
+            print("Neither analysis ensemble nor analysis state are given?!")
+            print("This shouldn't happen after applying an analysis state, either in variational or ensemble frameworks!")
+            print("Terminating...")
+            raise ValueError
 
         #
-        return analysis_trajectory
+        return analysis_trajectory, analysis_ensemble_trajectory
         #
 
     #
@@ -358,15 +408,14 @@ class SmoothingProcess(AssimilationProcess):
         # * For each cycle, do the following:
         #   1) retrieve assimilation window time bounds
         #   2) retrieve or create observations over this assimilation window
-        #   3) update the forecast state, and forecast time
+        #   3) update the forecast state/ensemble, and forecast time
         #   4) Check/update file/screen output settings for the current cycle
         #   5) Carry out a single smoothing cycle (analysis and forecast time are at the beginning of each window)
-        #   6) Update the running analysis state, and running analysis time
+        #   6) Update the running analysis state/ensemble, and running analysis time
 
         #
         # Number of assimilation cycles (windows):
         num_assim_windows = da_checkpoints.size
-
         #
         for wind_ind in xrange(num_assim_windows):
             #
@@ -395,7 +444,6 @@ class SmoothingProcess(AssimilationProcess):
                 print("An error occured while setting window_bounds!")
                 print("window_bounds[1] = %f < window_bounds[0] = %f" % (window_bounds[1], window_bounds[0]))
                 raise ValueError
-            #
 
             #
             # 2) retrieve or create observations over this assimilation window
@@ -490,23 +538,60 @@ class SmoothingProcess(AssimilationProcess):
                 #
 
 
-            # 3) update the forecast state (forward propagation of the previous analysis state), and forecast time
-            # The analysis state is propagated forward to the beginning of the current window (if needed)
-            # to generate a forecast state...
+            # 3) update the forecast state/ensemble (forward propagation of the previous analysis state/ensemble), 
+            # and forecast time.
+            # The analysis state/ensemble is/are propagated forward to the beginning of the current window (if needed)
+            # to generate a forecast state/ensemble...
             #
             if (window_bounds[0]-self._running_analysis_time) > self._time_eps:
                 #
                 self._running_forecast_time = window_bounds[0]
 
                 # Propagate the analysis state (from previous cycle) to the beginning of this window:
-                tmp_trajectory = self.model.integrate_state(self._running_analysis_state,
-                                                            [self._running_analysis_time, window_bounds[0]]
-                                                            )
-                if isinstance(tmp_trajectory, list):
-                    self._running_forecast_state = tmp_trajectory[-1]
+                if self._running_analysis_state is not None:
+                    no_state = False
+                    tmp_trajectory = self.model.integrate_state(self._running_analysis_state,
+                                                                [self._running_analysis_time, window_bounds[0]]
+                                                                )
+                    if isinstance(tmp_trajectory, list):
+                        self._running_forecast_state = tmp_trajectory[-1]
+                    else:
+                        self._running_forecast_state = tmp_trajectory
                 else:
-                    self._running_forecast_state = tmp_trajectory
+                    no_state = True
+                    self._running_forecast_state = None
 
+                # Propagate the analysis ensemble (from previous cycle) to the beginning of this window:
+                if self._running_analysis_ensemble is not None:
+                    no_ensemble = False
+                    if self._running_forecast_ensemble is None:
+                        self._running_forecast_ensemble = []
+                    if len(self._running_analysis_ensemble) != len(self._running_forecast_ensemble) > 0:
+                        self._running_forecast_ensemble = []  # destroy it!
+                    if len(self._running_forecast_ensemble) == 0:
+                        append = True
+                    else:
+                        append = False
+
+                    for s_ind, state in enumerat(eself._running_analysis_ensemble):
+                        tmp_trajectory = self.model.integrate_state(state,
+                                                                    [self._running_analysis_time, window_bounds[0]]
+                                                                   )
+                        if isinstance(tmp_trajectory, list):
+                            out = tmp_trajectory[-1]
+                        else:
+                            out = tmp_trajectory
+                        if append:
+                            self._running_forecast_ensemble.append(out.copy())
+                        else:
+                            self._running_forecast_ensemble[s_ind][:] = out.copy()  # should reuse memory
+                else:
+                    no_ensemble = True
+                    self._running_forecast_ensemble = None
+
+                if no_state and no_ensemble:
+                    print("This is unacceptable! Neither forecast state nor forecast ensemble could be generated from previous cycle!")
+                    raise ValueError
                 #
             elif (self._running_analysis_time-window_bounds[0]) > self._time_eps:
                 print("The forecast/analysis time must be at (or before) the beginning of the assimilation window!")
@@ -567,27 +652,25 @@ class SmoothingProcess(AssimilationProcess):
             if len(local_observations) > 0:
                 # Found some observations; start Assimilation over this window:
 
-                if wind_ind == 0:
-                    forecast_ensemble = self.assimilation_configs['initial_ensemble']
-                else:
-                    forecast_ensemble = self.smoother.smoother_configs['forecast_ensemble']
-
-                analysis_trajectory = self.assimilation_cycle(window_bounds=window_bounds,
-                                                              observations_list=local_observations,
-                                                              obs_checkpoints=local_obs_checkpoints,
-                                                              analysis_time=local_analysis_time,
-                                                              forecast_time=local_forecast_time,
-                                                              forecast_state=self._running_forecast_state,
-                                                              forecast_ensemble=forecast_ensemble,
-                                                              reference_time=self._running_reference_time,
-                                                              reference_state=self._running_reference_state,
-                                                              analysis_timespan=analysis_checkpoints,
-                                                              scr_output=scr_output,
-                                                              file_output=file_output,
-                                                              update_reference=not update_ref_here)
-
+                # TODO: Update to accomodate ensmbles as well!
+                raise ValueError("TODO...WIP....")
+                an_trjct, an_ens_trjct = self.assimilation_cycle(window_bounds=window_bounds,
+                                                                 observations_list=local_observations,
+                                                                 obs_checkpoints=local_obs_checkpoints,
+                                                                 analysis_time=local_analysis_time,
+                                                                 forecast_time=local_forecast_time,
+                                                                 forecast_state=self._running_forecast_state,
+                                                                 forecast_ensemble=self._running_forecast_ensemble,
+                                                                 reference_time=self._running_reference_time,
+                                                                 reference_state=self._running_reference_state,
+                                                                 analysis_timespan=analysis_checkpoints,
+                                                                 scr_output=scr_output,
+                                                                 file_output=file_output,
+                                                                 update_reference=not update_ref_here
+                                                                )
 
                 analysis_state = self.smoother.smoother_configs['analysis_state']
+                analysis_ensemble = self.smoother.smoother_configs['analysis_ensemble']
                 #
             else:
                 # No observations on this window, no assimilation needed; updated analysis state
@@ -600,9 +683,15 @@ class SmoothingProcess(AssimilationProcess):
             # Analysis step is done;
             # update running analysis state and time to be used by the next cycle
             self._running_analysis_time = window_bounds[0]
-            self._running_analysis_state = analysis_state.copy()
+            try:
+                self._running_analysis_state = analysis_state.copy()
+            except(AttributeError):
+                self._running_analysis_state = analysis_state
+            try:
+                self._running_analysis_ensemble = [s.copy() for s in analysis_ensemble]
+            except(AttributeError):
+                self._running_analysis_ensemble = analysis_ensemble
             #
-
 
             if not update_ref_here:
                 # get udated reference state and time from the smoother configs
@@ -615,22 +704,23 @@ class SmoothingProcess(AssimilationProcess):
 
             # Update the assimilation statistics/diagnostic list:
             # this is added for convenience (will be removed if it creates redundancy!)
-            d = self._construct_time_settings_dict()
-            d.update(dict(window_bounds = window_bounds,
-                          obs_checkpoints = local_obs_checkpoints,
-                          observations_list = local_observations,
-                          forecast_time = local_forecast_time,
-                          forecast_state = self._running_forecast_state,
-                          analysis_time = local_analysis_time,
-                          analysis_state = self._running_analysis_state,
-                          analysis_timespan=analysis_checkpoints,
-                          analysis_trajectory=analysis_trajectory,
-                          reference_time = self._running_reference_time,
-                          reference_state = self._running_reference_state,
-                          synthetic_obs=synthetic_obs,
-                          update_ref_here=update_ref_here
-                         ))
-            self.assimilation_configs['assimilation_windows_stats'].append(d)
+            if False:
+                d = self._construct_time_settings_dict()
+                d.update(dict(window_bounds = window_bounds,
+                              obs_checkpoints = local_obs_checkpoints,
+                              observations_list = local_observations,
+                              forecast_time = local_forecast_time,
+                              forecast_state = self._running_forecast_state,
+                              analysis_time = local_analysis_time,
+                              analysis_state = self._running_analysis_state,
+                              analysis_timespan=analysis_checkpoints,
+                              analysis_trajectory=analysis_trajectory,
+                              reference_time = self._running_reference_time,
+                              reference_state = self._running_reference_state,
+                              synthetic_obs=synthetic_obs,
+                              update_ref_here=update_ref_here
+                             ))
+                self.assimilation_configs['assimilation_windows_stats'].append(d)
 
 
             # print diagnostics if needed!
@@ -723,20 +813,23 @@ class SmoothingProcess(AssimilationProcess):
             print("Terminating...")
             raise AssertionError
 
-        if assimilation_configs['initial_forecast'] is None:
-            if 'initial_ensemble' in assimilation_configs:
-                initial_ensemble = assimilation_configs['initial_ensemble']
-            else:
-                initial_ensemble = None
-
-            if initial_ensemble is None:
-                print("The initial forecast has to be passed to the constructor;")
-                print("Alternatively, an 'initial_ensemble' should be passed, and the average is taken!")
-                print("Terminating...")
-                raise AssertionError
-            else:
-                initial_forecast = utility.ensemble_mean(initial_ensemble)
-                assimilation_configs.update({'initial_forecast': initial_forecast})
+        # Check initial forecast and/or initial ensemble:
+        initial_ensemble = assimilation_configs['initial_ensemble']
+        initial_forecast = assimilation_configs['initial_forecast']
+        if initial_ensemble is initial_forecast is None:
+            print("Either initial forecast or initial ensemble must be provided in the assimilation configurations")
+            print("Both found to be None! \n Terminating...")
+            raise ValueError
+        elif initial_forecast is None:
+            # Ensemble is given; calculate ensemble mean, and update configs
+            initial_forecast = utility.ensemble_mean(initial_ensemble)
+            assimilation_configs.update({'initial_forecast':initial_forecast})
+        elif initial_ensemble is None:
+            # Only initial forecast is given; good to go with variational schemes
+            pass
+        else:
+            # Both initial ensemble, and initial forecast are given; we are more than good to go
+            pass
 
         #
         # Check the experiment timespan vs observation timespan:

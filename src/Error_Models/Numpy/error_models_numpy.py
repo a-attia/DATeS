@@ -141,7 +141,6 @@ class BackgroundErrorModelNumpy(ErrorModelsBase):
         
         # Attach basic variables ( To be updated on demand )
         self._model = model
-        self._state_size = model.state_size()
         self.B = None  # background error covariance matrix
         self.invB = None  # inverse of background error covariance matrix
         self.sqrtB = None  # square root matrix of background error covariance matrix (for random vector generations)
@@ -175,7 +174,7 @@ class BackgroundErrorModelNumpy(ErrorModelsBase):
             errors_covariance_method = self._configs['errors_covariance_method'].lower()
             if errors_covariance_method == 'empirical':
                 #
-                state_size = self._state_size
+                state_size = self._model.state_size()
                 #
                 # Statistics of Standard Gaussian Background Errors are constructed:
                 sigma_x0 = self._configs['background_noise_level']
@@ -189,7 +188,7 @@ class BackgroundErrorModelNumpy(ErrorModelsBase):
                     state_mag = self._model._reference_initial_condition.copy()
                     state_mag = state_mag.scale(sigma_x0)
                     state_mag = state_mag.get_numpy_array()
-                    # variances = np.ones(self._state_size)*factor + state_mag
+                    # variances = np.ones(self._model.state_size())*factor + state_mag
                     variances = state_mag
                     variances = factor + (1.0-factor) * np.square(variances)
                     try:
@@ -281,6 +280,7 @@ class BackgroundErrorModelNumpy(ErrorModelsBase):
                         # updated for big models...
                     #
                     elif self._B_structure == 'full':
+                        # print(self.B)
                         self.sqrtB = self.B.cholesky(in_place=False)
                     #
                     else:
@@ -416,7 +416,7 @@ class BackgroundErrorModelNumpy(ErrorModelsBase):
         errors_distribution = self._configs['errors_distribution'].lower()
         if errors_distribution == 'gaussian':
             # Generate Gaussian Random Noise Vector
-            randn_numpy = utility.mvn_rand_vec(self._state_size)
+            randn_numpy = utility.mvn_rand_vec(self._model.state_size())
             randn_vec = self._model.state_vector()
             randn_vec[:] = randn_numpy[:]
             randn_vec = self.error_covariances_sqrt_prod_vec(randn_vec, in_place=True)
@@ -506,7 +506,6 @@ class ModelErrorModelNumpy(ErrorModelsBase):
         
         # Attach basic variables ( To be updated on demand )
         self._model = model
-        self._state_size = model.state_size()
         self.Q = None  # model error covariance matrix
         self.invQ = None  # inverse of model error covariance matrix
         self.sqrtQ = None  # square root matrix of model error covariance matrix (for random vector generations)
@@ -533,6 +532,7 @@ class ModelErrorModelNumpy(ErrorModelsBase):
         
         """
         errors_distribution = self._configs['errors_distribution'].lower()
+        state_size = self._model.state_size()
         #
         if errors_distribution == 'gaussian':
             #
@@ -551,7 +551,7 @@ class ModelErrorModelNumpy(ErrorModelsBase):
                     state_mag = self._model._reference_initial_condition.copy()
                     state_mag = state_mag.scale(sigma_x0)
                     state_mag = state_mag.get_numpy_array()
-                    # variances = np.ones(self._state_size)*factor + state_mag
+                    # variances = np.ones(self._model.state_size())*factor + state_mag
                     variances = state_mag
                     variances = factor + (1.0-factor) * np.square(variances)
                     try:
@@ -633,7 +633,6 @@ class ModelErrorModelNumpy(ErrorModelsBase):
                             sqrtQ.setdiag(np.sqrt(variances), k=0)
                             sqrtQ = sqrtQ.tocsr()
                         except (TypeError):
-                            state_size = self._model.state_size()
                             indexes = np.empty((2, state_size))
                             indexes[0, :] = np.arange(state_size)
                             indexes[1, :] = np.arange(state_size)
@@ -779,7 +778,7 @@ class ModelErrorModelNumpy(ErrorModelsBase):
         errors_distribution = self._configs['errors_distribution'].lower()
         if errors_distribution == 'gaussian':
             # Generate Gaussian Random Noise Vector
-            randn_numpy = utility.mvn_rand_vec(self._state_size)
+            randn_numpy = utility.mvn_rand_vec(self._model.state_size())
             randn_vec = self._model.state_vector()
             randn_vec[:] = randn_numpy[:]
             randn_vec = self.error_covariances_sqrt_prod_vec(randn_vec, in_place=True)
@@ -831,6 +830,7 @@ class ObservationErrorModelNumpy(ErrorModelsBase):
     """
     
     _def_observation_error_configs = {'errors_covariance_method': 'empirical',
+                                      'error_variances':None,
                                       'errors_distribution': 'gaussian',
                                       'observation_noise_level': 0.05,
                                       'create_errors_correlations':False,
@@ -852,21 +852,34 @@ class ObservationErrorModelNumpy(ErrorModelsBase):
                   % errors_distribution)
             raise NotImplementedError()
         
-        # Check the strategy for observation errors creation
-        errors_covariance_method = self._configs['errors_covariance_method'].lower()
-        if errors_covariance_method == 'empirical':
-            pass
-        else:
-            print("The mothod ['%s'] chosen for construction of the observation errors is not yet supported." \
-                  % errors_covariance_method)
-            raise NotImplementedError()
-        
-        # Check for the structure of the observation error covariance matrix:
-        create_errors_correlations = self._configs['create_errors_correlations']
-        if not create_errors_correlations:
+        error_variances = self._configs['error_variances']
+        if error_variances is not None:
+            if np.isscalar(error_variances):
+                error_variances = np.ones(model.observation_size(), dtype=np.float) * error_variances
+            else:
+                error_variances = np.asarray(error_variances[:])
+                if error_variances.size == model.observation_size():
+                    pass
+                else:
+                    print("Variances must be scalar or an iterable of length %d, not %d" % (model.observation_size(), error_variances.size))
             self._R_structure = 'diagonal'
+            self._configs.update({'errors_covariance_method':'fixed', 'error_variances':error_variances})
         else:
-            self._R_structure = 'full'
+            # Check the strategy for observation errors creation
+            errors_covariance_method = self._configs['errors_covariance_method'].lower()
+            if errors_covariance_method == 'empirical':
+                pass
+            else:
+                print("The mothod ['%s'] chosen for construction of the observation errors is not yet supported." \
+                      % errors_covariance_method)
+                raise NotImplementedError()
+            
+            # Check for the structure of the observation error covariance matrix:
+            create_errors_correlations = self._configs['create_errors_correlations']
+            if not create_errors_correlations:
+                self._R_structure = 'diagonal'
+            else:
+                self._R_structure = 'full'
             
         # Attach basic variables ( To be updated on demand )
         self._model = model
@@ -1100,6 +1113,25 @@ class ObservationErrorModelNumpy(ErrorModelsBase):
                         print("The structure of R: ['%s'] is not recognized! " % repr(['diagonal', 'full']))
                         raise ValueError
                         #
+            elif errors_covariance_method == 'fixed':
+                #
+                model = self._model
+                observation_size = model.observation_size()
+                variances = self._configs['error_variances']
+                R = sparse.lil_matrix((observation_size, observation_size))
+                R.setdiag(variances, k=0)
+                self.R = ObservationMatrixSpSciPy(R)
+                #
+                sqrtR = sparse.lil_matrix((observation_size, observation_size))
+                sqrtR.setdiag(np.sqrt(variances), k=0)
+                sqrtR = sqrtR.tocsr()
+                self.sqrtR = ObservationMatrixSpSciPy(sqrtR)
+                #
+                invR = sparse.lil_matrix((observation_size, observation_size))
+                invR.setdiag(1.0/variances, k=0)
+                invR = invR.tocsr()
+                self.invR = ObservationMatrixSpSciPy(invR)
+                #
             else:
                 print("The mothod ['%s'] chosen for construction of the observation errors is not yet supported." \
                       % errors_covariance_method)

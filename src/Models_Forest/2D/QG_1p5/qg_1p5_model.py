@@ -889,7 +889,7 @@ class QG1p5(ModelsBase):
         return observations_positions.copy()
         #
     # add alias
-    get_observational_grid = get_observations_positions
+    get_observation_grid = get_observational_grid = get_observations_positions
 
     def construct_observation_operator(self, time_point=None, construct_Jacobian=False):
         """
