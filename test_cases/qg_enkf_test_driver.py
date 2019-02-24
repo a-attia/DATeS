@@ -38,8 +38,9 @@
 """
 
 import sys
-import numpy as np
+sys.path.insert(1, "../")
 
+import numpy as np
 
 # Define environment variables and update Python search path;
 # this is a necessary call that must be inserted in the beginning of any driver.
@@ -72,11 +73,11 @@ da_checkpoints = obs_checkpoints
 #
 
 
-# Create DA pieces: 
+# Create DA pieces:
 # ---------------------
 # this includes:
 #   i-   forecast trajectory/state
-#   ii-  initial ensemble, 
+#   ii-  initial ensemble,
 #   iii- filter/smoother/hybrid object.
 #
 # create initial ensemble...
@@ -98,12 +99,12 @@ enkf_filter_configs = dict(model=model,
                            localization_function='Gaspari-Cohn',
                            )
 
-filter_obj = StochasticEnKF(filter_configs=enkf_filter_configs, 
+filter_obj = StochasticEnKF(filter_configs=enkf_filter_configs,
                             output_configs=dict(file_output_moment_only=False)
                             )
 
-# Create sequential DA 
-# processing object: 
+# Create sequential DA
+# processing object:
 # ---------------------
 # Here this is a filtering_process object;
 from filtering_process import FilteringProcess
@@ -129,4 +130,3 @@ experiment.recursive_assimilation_process()
 # ---------------------
 utility.clean_executable_files()
 #
-

@@ -23,9 +23,10 @@
 """
 
 # This is a script to read and plot the ouptput of EnKF flavors, and HMC filter.
+import sys
+sys.path.insert(1, "../")
 
 import os
-import sys
 import ConfigParser
 import numpy as np
 import scipy.io as sio

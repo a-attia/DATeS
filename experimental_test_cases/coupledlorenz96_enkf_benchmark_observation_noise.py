@@ -5,6 +5,8 @@ Apply Ensemble Kalman Filter to Coupled Lorenz96 model.
 """
 
 import sys
+sys.path.insert(1, "../")
+
 import os
 import numpy as np
 import pickle
@@ -78,10 +80,10 @@ if __name__ == '__main__':
     avg_frcst_rmse = []
     avg_anl_rmse = []
     avg_free_rmse = []
-    
+
     # Filter settings:
     ensemble_size = 25
-    
+
     base_observation_noise_level = 0.05
     obs_noise_levels = np.arange(0, 0.4001, 0.5*base_observation_noise_level)
     obs_noise_levels = obs_noise_levels[1: ]
@@ -96,9 +98,9 @@ if __name__ == '__main__':
 
         file_output_dir = os.path.join(base_file_output_dir, "ObsErr_%f" % observation_noise_level)
         print(file_output_dir)
-        
+
         if not read_only:
-            
+
             #
             # ============================================================
             if os.path.isdir(file_output_dir):
@@ -188,11 +190,11 @@ if __name__ == '__main__':
 
             # run the sequential filtering over the timespan created by da_checkpoints
             experiment.recursive_assimilation_process(observations, obs_checkpoints, da_checkpoints)
-        
+
         if individual_plots:
             cmd = "python filtering_results_reader_coupledLorenz.py -f %s" % os.path.join(file_output_dir, 'output_dir_structure.txt')
             os.system(cmd)
-        
+
         # Collect RMSE plots
         results_file = os.path.join(file_output_dir, "Collective_Results.pickle")
         if not os.path.isfile(results_file):
@@ -215,14 +217,14 @@ if __name__ == '__main__':
 
     avg_frcst_rmse = np.asarray(avg_frcst_rmse)
     avg_anl_rmse = np.asarray(avg_anl_rmse)
-    
+
     coll_dict = dict(obs_noise_levels=obs_noise_levels,
                      avg_free_rmse=avg_free_rmse,
                      avg_frcst_rmse=avg_frcst_rmse,
                      avg_anl_rmse=avg_anl_rmse)
     pickle.dump(coll_dict, open(os.path.join(base_file_output_dir, 'Collective_Results.pickle'), 'wb'))
 
-    
+
     #
     fig = plt.figure(facecolor='white')
     ax = fig.gca()

@@ -39,6 +39,8 @@
 """
 
 import sys
+sys.path.insert(1, "../")
+
 import numpy as np  # this is just to create
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
@@ -75,11 +77,11 @@ da_checkpoints = obs_checkpoints
 #
 
 
-# Create DA pieces: 
+# Create DA pieces:
 # ---------------------
 # this includes:
 #   i-   forecast trajectory/state
-#   ii-  initial ensemble, 
+#   ii-  initial ensemble,
 #   iii- filter/smoother/hybrid object.
 #
 # create initial ensemble...
@@ -128,8 +130,8 @@ hmc_output_configs = dict(scr_output=True,
 
 filter_obj = HMCFilter(filter_configs=hmc_filter_configs, output_configs = hmc_output_configs)
 
-# Create sequential DA 
-# processing object: 
+# Create sequential DA
+# processing object:
 # ---------------------
 # Here this is a filtering_process object;
 from filtering_process import FilteringProcess
@@ -155,4 +157,3 @@ experiment.recursive_assimilation_process()
 # ---------------------
 utility.clean_executable_files()
 #
-

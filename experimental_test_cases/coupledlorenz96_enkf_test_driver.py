@@ -5,6 +5,8 @@ Apply Ensemble Kalman Filter to Coupled Lorenz96 model.
 """
 
 import sys
+sys.path.insert(1, "../")
+
 import os
 import numpy as np
 import pickle
@@ -247,7 +249,7 @@ if __name__ == '__main__':
                    'observation_vector_size':num_Xs,  # observe everything first
                    'background_noise_level':0.08}
     model = Lorenz96(model_configs)
-    
+
 
     # return is in NumPy format
     # convert entities to model-based formats
@@ -261,7 +263,7 @@ if __name__ == '__main__':
         ref_trajectory.append(state)
         obs = model.state_vector(cpld_observations[: state_size, i])
         observations.append(model.evaluate_theoretical_observation(obs))
-    
+
     if True:
         init_ensemble = model.create_initial_ensemble(ensemble_size=ensemble_size)
     else:

@@ -23,6 +23,8 @@ Apply Ensemble Kalman Filter With Adaptive inflation to Lorenz96 or QG1.5 model.
 """
 
 import sys
+sys.path.insert(1, "../")
+
 import os
 import re
 import numpy as np

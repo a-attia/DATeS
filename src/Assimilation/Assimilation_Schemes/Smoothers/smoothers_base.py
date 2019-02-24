@@ -724,7 +724,7 @@ class SmootherBase(object):
         if output_configs['file_output']:
             if output_configs['file_output_dir'] is None:
                 dates_root_dir = os.getenv('DATES_ROOT_PATH')
-                directory_name = '_smoother_results_'
+                directory_name = "Results/Smoothing_Results"
                 tmp_dir = os.path.join(dates_root_dir, directory_name)
                 # print("Output directory of the smoother is not set. Results are saved in: '%s'" % tmp_dir)
                 output_configs['file_output_dir'] = tmp_dir
