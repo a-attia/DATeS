@@ -898,7 +898,7 @@ class EnKF(FiltersBase):
 
         # Check if the forecast ensemble should be inflated;
         f = self.filter_configs['forecast_inflation_factor']
-        forecast_ensemble = utility.inflate_ensemble(self.filter_configs['forecast_ensemble'], f, in_place=False)
+        forecast_ensemble = utility.inflate_ensemble(self.filter_configs['forecast_ensemble'], f, in_place=True)
         forecast_state = utility.ensemble_mean(forecast_ensemble)
         ensemble_size = len(forecast_ensemble)
 
@@ -1006,7 +1006,12 @@ class EnKF(FiltersBase):
             self.filter_configs['analysis_ensemble'] = analysis_ensemble
 
             # Update the analysis_state in the filter_configs dictionary.
-            self.filter_configs['analysis_state'] = analysis_state
+            self.filter_configs['analysis_state'] = analysis_state.copy()
+
+            if self._verbose:
+                xa = self.filter_configs['analysis_state'].get_numpy_array()
+                print("xa :", analysis_state)
+                print("xa2: ", utility.ensemble_mean(analysis_ensemble))
             #
 
             #
@@ -1302,7 +1307,7 @@ class EnKF(FiltersBase):
 
             if self._verbose:
                 print("Started Localization step in the observation space; ")
-                print("Localization radius/radii: %s" % repr(localization_radius))
+                print("Localization radius/radii: %s" % repr(orig_loc_radius))
 
             # model_grid, and observation_grid, and dimensions; for calculating distances:
             model_grid = model.get_model_grid()
@@ -1350,7 +1355,7 @@ class EnKF(FiltersBase):
                             dists = utility.euclidean_distance(model_grid, obs_grid_point)
                             min_dist = dists.min()
                             min_loc = np.where(dists == min_dist)[0][0]
-                            rad = localization_radius[min_loc]
+                            rad = orig_loc_radius[min_loc]
                             if periodic_bc:
                                 # TODO: this is incorrect for more than one dimension... Raise an error, or upgrade!
                                 dists = utility.euclidean_distance(model_grid-((state_size-1)*dx), obs_grid_point)
@@ -1381,8 +1386,9 @@ class EnKF(FiltersBase):
                     cir_grid = observation_grid-((state_size-1)*dx)
 
                 # Localization in the observation space:
+                sz = observation_grid[0, :].size
                 for obs_ind in xrange(observation_size):
-                    ref_obs_coord = observation_grid[obs_ind, :]
+                    ref_obs_coord = observation_grid[obs_ind, :].reshape((1, sz))
                     distances = utility.euclidean_distance(observation_grid, ref_obs_coord)
 
                     #
@@ -1441,9 +1447,10 @@ class EnKF(FiltersBase):
                 cir_grid = model_grid - ((state_size-1)*dx)
 
             # loclaization of PHT by columns
+            sz = observation_grid[0, :].size
             for obs_ind in xrange(observation_size):
                 #
-                ref_obs_coord = observation_grid[obs_ind, :]
+                ref_obs_coord = observation_grid[obs_ind, :].reshape((1, sz))
                 distances = utility.euclidean_distance(model_grid, ref_obs_coord)
                 #
                 # update distances for periodic models/boundary-conditions (e.g. Lorenz 96)
@@ -1554,6 +1561,7 @@ class EnKF(FiltersBase):
             utility.cleanup_directory(directory_name=out_dir, parent_path=parent_path)
         # check the output sub-directories...
         filter_statistics_dir = os.path.join(file_output_directory, output_configs['filter_statistics_dir'])
+        # print("filter_statistics_dir", filter_statistics_dir)
         model_states_dir = os.path.join(file_output_directory, output_configs['model_states_dir'])
         observations_dir = os.path.join(file_output_directory, output_configs['observations_dir'])
         file_output_variables = output_configs['file_output_variables']  # I think it's better to remove it from the filter base...
@@ -1662,7 +1670,8 @@ class EnKF(FiltersBase):
                                             )
         # save reference state
         reference_state = self.filter_configs['reference_state']
-        self.model.write_state(state=reference_state, directory=cycle_states_out_dir, file_name='reference_state')
+        if reference_state is not None:
+            self.model.write_state(state=reference_state, directory=cycle_states_out_dir, file_name='reference_state')
 
         #
         # Save observation to file; use model to write observations to file(s)
@@ -1726,6 +1735,12 @@ class EnKF(FiltersBase):
                               ensemble_size=filter_configs['ensemble_size'],
                               apply_preprocessing=filter_configs['apply_preprocessing'],
                               apply_postprocessing=filter_configs['apply_postprocessing'],
+                              inflation_factor=filter_configs['inflation_factor'],
+                              forecast_inflation_factor=filter_configs['forecast_inflation_factor'],
+                              localize_covariances=filter_configs['localize_covariances'],
+                              localization_method=filter_configs['localization_method'],
+                              localization_radius=filter_configs['localization_radius'],
+                              localization_function=filter_configs['localization_function'],
                               timespan=filter_configs['timespan'],
                               analysis_time=filter_configs['analysis_time'],
                               observation_time=filter_configs['observation_time'],
@@ -1948,6 +1963,9 @@ class DEnKF(EnKF):
 
             # get the measurements vector
             observation = self.filter_configs['observation'].get_numpy_array()
+            if self._verbose:
+                print("xf: ", np.mean(forecast_ensemble_np, 1))
+                print("Observation: ", observation)
 
             #
             # PREPARE for ASSIMILATION:
@@ -2128,7 +2146,10 @@ class DEnKF(EnKF):
 
             # Update the analysis_state in the filter_configs dictionary.
             self.filter_configs['analysis_state'] = analysis_state.copy()
-            tes = self.filter_configs['analysis_state'].get_numpy_array()
+            if self._verbose:
+                xa = self.filter_configs['analysis_state'].get_numpy_array()
+                print("xa :", xa)
+                print("xa2: ", utility.ensemble_mean(analysis_ensemble))
 
             #
         #

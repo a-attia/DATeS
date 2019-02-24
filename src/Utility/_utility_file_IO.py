@@ -186,7 +186,7 @@ def get_list_of_files(root_dir, recursive=False, return_abs=True, extension=None
 
 
 #
-def try_file_name(directory, file_prefix, extension=None):
+def try_file_name(directory, file_prefix, extension=None, ignore_base_name=False):
     """
     Try to find a suitable file name file_prefix_<number>.<extension>
 
@@ -194,6 +194,7 @@ def try_file_name(directory, file_prefix, extension=None):
         directory:
         file_prefix:
         extension:
+        start_at_zero: start checking file name starting with *_0.*, ignoring names witout counters
 
     Returns:
         file_name:
@@ -202,39 +203,79 @@ def try_file_name(directory, file_prefix, extension=None):
     #
     if not os.path.isdir(directory):
         raise IOError(" ['%s'] is not a valid directory!" % directory)
-
-    if not directory.endswith('/'):
-        directory += '/'
+    
+    pathsep = os.path.sep
+    if not directory.endswith(pathsep):
+        directory += pathsep
 
     if extension is None:
         file_name = file_prefix
     else:
         file_name = file_prefix + '.'+extension.strip('. ')
+    
+    counter = 0
+    success = False
+    if not ignore_base_name:
+        if not os.path.isfile(os.path.join(directory, file_name)):
+            success = True
+        else:
+            pass
+    #
+    while not success:
+        if extension is None:
+            file_name = file_prefix +'_' + str(counter)
+        else:
+            file_name = file_prefix +'_' + str(counter) + '.' + extension.strip('. ')
 
-    if not os.path.isfile(os.path.join(directory, file_name)):
-        pass
-    else:
-        #
-        success = False
-        counter = 0
-        while not success:
-            if extension is None:
-                file_name = file_prefix +'_' + str(counter)
-            else:
-                file_name = file_prefix +'_' + str(counter) + '.' + extension.strip('. ')
-
-            if not (os.path.isfile(directory + file_name) ):
-                success = True
-                break
-            else:
-                pass
-            counter += 1
+        if not (os.path.isfile(directory + file_name) ):
+            success = True
+            break
+        else:
+            pass
+        counter += 1
     #
     return file_name
 
 #
-def cleanup_directory(directory_name, parent_path, backup_existing=True):
+def try_directory_name(location, directory_prefix, return_abspath=False):
     """
+    Similar to try_file_name, but works for folders
+
+    Args:
+        location:
+        directory_prefix:
+        return_abspath:
+
+    Returns:
+        directory:
+
+    """
+    #
+    if not os.path.isdir(location):
+        raise IOError(" ['%s'] is not a valid directory!" % location)
+
+    directory = directory_prefix
+
+    # if prefix exists, try appending numbers:
+    if os.path.isdir(os.path.join(location, directory)):
+        #
+        success = False
+        counter = 0
+        while True:
+            directory = '%s_%d' % (directory_prefix, counter)
+            if not os.path.isdir(os.path.join(location, directory)):
+                break
+            counter += 1
+
+    if return_abspath:
+        file_name = os.path.join(location, directory)
+    #
+    return directory
+
+
+#
+def cleanup_directory(directory_name, parent_path, backup_existing=True, zip_backup=False):
+    """ 
     Try to find the directory name under the parent path. I.e. parent_path/directory
     IF the directory does not exist, create it, otherwise either delete it's contents or back them up.
     If backup_existing is True and zip_backup is true the backup is archived as *.zip file.
@@ -243,23 +284,39 @@ def cleanup_directory(directory_name, parent_path, backup_existing=True):
         directory_name:
         parent_path:
         backup_existing:
+        zip_backup: used if backup_existing is True; if this is False, the directory is only renamed, otherwise it's also zipped
 
     """
-    #
-    directory_full_path = os.path.join(parent_path, directory_name.strip('/ \\'))
-    #
+    directory_name = directory_name.strip('/ \\')
+    parent_path = os.path.abspath(parent_path) 
+    directory_full_path = os.path.join(parent_path, directory_name)
+    #   
     if not os.path.isdir(parent_path) or not os.path.isdir(directory_full_path):
         os.makedirs(directory_full_path)
     else:
         if backup_existing:
-            zip_dir(path=directory_full_path)
+            if zip_backup:
+                # print("Zipping")
+                zip_dir(path=directory_full_path)
+                # Remove the leaf directory only, keeping the parent path untouched.
+                # the directory is recreated instead of searching for subdirectories and files.
+                shutil.rmtree(directory_full_path)
+            else:
+                # print("Renaming")
+                # Just rename the directory; Try other name:
+                backup_directory = try_directory_name(parent_path, directory_name, return_abspath=False)
+                backup_path = os.path.join(parent_path, backup_directory)
+                print(directory_name, backup_directory, directory_full_path, backup_path)
+                os.rename(directory_full_path, backup_path)
+                #
+            # Now, create the target_path
+            os.makedirs(directory_full_path)
         else:
-            pass
-        # Remove the leaf directory only, keeping the parent path untouched.
-        # the directory is recreated instead of searching for subdirectories and files.
-        shutil.rmtree(directory_full_path)
-        os.makedirs(directory_full_path)
+            shutil.rmtree(directory_full_path)
+            os.makedirs(directory_full_path)
         #
+
+
 
 
 def zip_dir(path, output_location=None, save_full_path=False, allowZip64=True):

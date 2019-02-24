@@ -36,7 +36,7 @@ module parameters_mod
   ! To make the ocean a rectangular (at your own risk!) change nx1,
   ! ny1 to (2,4), and adjust domain size (Lx, Ly)...
   !
-  integer, parameter, public :: MREFIN = 5 
+  integer, parameter, public :: MREFIN = 7 
 
   integer, parameter, public :: NX1 = 2
   integer, parameter, public :: NY1 = 2

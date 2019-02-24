@@ -87,6 +87,7 @@ class FilteringProcess(AssimilationProcess):
     # Default filtering process configurations
     _def_assimilation_configs = dict(filter=None,
                                      obs_checkpoints=None,
+                                     observations=None,
                                      da_checkpoints=None,
                                      da_time_spacing=None,  # Used if both obs_checkpoints,da_checkpoints are None.
                                      num_filtering_cycles=None,  # Used with 'da_time_spacing'only.
@@ -144,17 +145,29 @@ class FilteringProcess(AssimilationProcess):
         # Make sure the directory is created and cleaned up at this point...
         self.set_filtering_output_dir(self.file_output_dir, rel_to_root_dir=True)
         #
+        model_conf = self.model.model_configs.copy()
+        filter_conf = self.filter.filter_configs.copy()
+        filter_conf.update({'model':None})
+        assim_conf = self.assimilation_configs.copy()
+        assim_conf.update({'filter':None})
+        file_output_dir= self.output_configs['file_output_dir']
+        utility.write_dicts_to_config_file('setup.pickle', file_output_dir,
+                                           [model_conf, filter_conf, assim_conf],
+                                           ['Model Configs', 'Filter Configs', 'Assimilation Configs'],
+                                           True
+                                          )
+        #
 
     #
-    def recursive_assimilation_process(self, observations_list=None, obs_checkpoints=None, da_checkpoints=None, update_ref_here=False):
+    def recursive_assimilation_process(self, observations=None, obs_checkpoints=None, da_checkpoints=None, update_ref_here=False):
         """
         Loop over all assimilation cycles and output/save results (forecast, analysis, observations)
         for all the assimilation cycles.
 
         Args:
-            observations_list (default None): list of obs.observation_vector objects,
+            observations (default None): list of obs.observation_vector objects,
                 A list containing observaiton vectors at specific obs_checkpoints to use for sequential filtering
-                If not None, len(observations_list) must be equal to len(obs_checkpoints).
+                If not None, len(observations) must be equal to len(obs_checkpoints).
                 If it is None, synthetic observations should be created sequentially
 
             obs_checkpoints (default None): iterable containing an observation timespan
@@ -172,45 +185,81 @@ class FilteringProcess(AssimilationProcess):
             None
 
         """
-        if observations_list is not None and obs_checkpoints is not None:
+        filter_obj = self.filter
+        model_obj = self.model
+        #
+
+        # Check availability of true/reference solution:
+        reference_state = self.assimilation_configs['ref_initial_condition']
+        if reference_state is None:
+            print("No reference soltution found; No synthetic observations can be created, nor statistics e.g. RMSE can be calculated!")
+            reference_time = None
+        else:
+            reference_time = self.assimilation_configs['ref_initial_time']
+
+        # Check availability of observations and observations' and assimilations checkpoints
+        if observations is not None and obs_checkpoints is not None:
             # override process configurations and use given obs_checkpoints and observations list.
             # This will be useful if non-synthetic observations are to be used.
-            self.obs_checkpoints = np.asarray(obs_checkpoints)
-            if np.size(self.obs_checkpoints) != len(observations_list):
-                raise ValueError("The number of observations %d does not match the number of observation checkpoints %d" %
-                                 (np.size(self.obs_checkpoints), len(observations_list))
-                                 )
-            if da_checkpoints is None:
-                self.da_checkpoints = self.obs_checkpoints
+            if len(obs_checkpoints) != len(observations):
+                print("The number of observations %d does not match the number of observation checkpoints %d" % (len(obs_checkpoints), len(observations)))
+                raise ValueError
             else:
-                self.da_checkpoints = np.asarray(da_checkpoints)
-            if np.min(da_checkpoints) < self.ref_initial_time or np.min(obs_checkpoints) < self.ref_initial_time:
-                raise ValueError("Some observations or assimilation checkpoints are less than the time "
-                                 "where the reference initial condition of the model is given")
+                self.assimilation_configs['obs_checkpoints'] = [obs for obs in obs_checkpoints]
+                self.assimilation_configs['observations'] = [obs for obs in observations]
+
+            # validate da_checkpoints
+            if da_checkpoints is None:
+                if self.assimilation_configs['da_checkpoints'] is not None:
+                    da_checkpoints = self.assimilation_configs['da_checkpoints']
+                else:
+                    da_checkpoints = [d for d in obs_checkpoints]
+                    self.assimilation_configs['da_checkpoints'] = da_checkpoints
+            else:
+                self.assimilation_configs['da_checkpoints'] = [d for d in da_checkpoints]
+
+            # No need to create synthetic observations, as real observations exist
             create_synthetic_observations = False
         else:
-            create_synthetic_observations = True
+            #
+            if observations is None:
+                if self.assimilation_configs['observations'] is None:
+                    create_synthetic_observations = True
+                else:
+                    observations = [obs for obs in self.assimilation_configs['observations']]
+                    create_synthetic_observations = False
 
-        # check the reference initial condition
-        reference_state = self.ref_initial_condition
-        reference_time = self.ref_initial_time
-        self.filter.filter_configs['reference_state'] = reference_state.copy()
-        self.filter.filter_configs['reference_time'] = reference_time
+            if obs_checkpoints is None:
+                if self.assimilation_configs['obs_checkpoints'] is None:
+                    raise ValueError
+                else:
+                    obs_checkpoints = [o for o in self.assimilation_configs['obs_checkpoints']]
 
-        if self.da_checkpoints[0] == self.ref_initial_time:
-            # TODO: needs to be handled more carefully!
-            da_checkpoints = self.da_checkpoints
-            ignore_first_obs = True
-        elif self.da_checkpoints[0] > self.ref_initial_time:
-            ignore_first_obs = False
-            da_checkpoints = np.insert(self.da_checkpoints, 0, self.ref_initial_time)
+            if da_checkpoints is None:
+                if self.assimilation_configs['da_checkpoints'] is None:
+                    da_checkpoints = obs_checkpoints
+                else:
+                    da_checkpoints = [o for o in self.assimilation_configs['da_checkpoints']]
+                    #
+        if create_synthetic_observations and reference_state is None:
+            print("synthetic observations are to be created, yet the reference state couldn't be found in the assimilation_configs dictionary!")
+            raise ValueError
+
+        if reference_state is not None:
+            self.filter.filter_configs['reference_state'] = reference_state
+            self.filter.filter_configs['reference_time'] = reference_time
+
+            if da_checkpoints[0] == reference_time:
+                # TODO: needs to be handled more carefully!
+                ignore_first_obs = True
+            elif da_checkpoints[0] > reference_time:
+                ignore_first_obs = False
+                da_checkpoints = np.insert(self.da_checkpoints, 0, self.ref_initial_time)
+                self.assimilation_configs['da_checkpoints'] = da_checkpoints
+            else:
+                raise ValueError("first da_checkpoint is less than the reference initial time!")
         else:
-            raise ValueError("first da_checkpoint is less than the reference initial time!")
-        obs_checkpoints = self.obs_checkpoints
-
-
-        # TODO: save/output initial results based on scr_output and file_output flags
-        #
+            ignore_first_obs = False
 
         # Initialize the output variable for callback returns:
         if self._callback is not None:
@@ -228,10 +277,10 @@ class FilteringProcess(AssimilationProcess):
         # Loop over each two consecutive da_points to create cycle limits
         for time_ind in xrange(len(da_checkpoints)-1):
             #
-            reference_state = self.filter.filter_configs['reference_state'].copy()
-            # print('reference_state_type_test', isinstance(reference_state, np.ndarray))
-            # print('reference_state', reference_state)
-            #
+            if create_synthetic_observations:
+                reference_state = filter_obj.filter_configs['reference_state'].copy()
+                reference_time = filter_obj.filter_configs['reference_time']
+
             local_da_checkpoints = da_checkpoints[time_ind: time_ind+2]
             local_obs_checkpoints = obs_checkpoints[time_ind: time_ind+2]
             local_timespan = local_da_checkpoints
@@ -245,9 +294,9 @@ class FilteringProcess(AssimilationProcess):
                 analysis_time = local_da_checkpoints[0]  # based on forecast_first
                 forecast_time = local_da_checkpoints[-1]  # based on forecast_first
                 observation_time = local_obs_checkpoints[0]
-
+            
+            # retrieve/create observation at the current observation time
             if create_synthetic_observations:
-
                 if self._random_state is not  None:
                     np_state = np.random.get_state()
                     np.random.set_state(self._random_state)
@@ -272,12 +321,12 @@ class FilteringProcess(AssimilationProcess):
                     self._random_state = np.random.get_state()
                     np.random.set_state(np_state)
 
-
             else:
+                # use real observations
                 if ignore_first_obs:
-                    observation = observations_list[time_ind+1]
+                    observation = observations[time_ind+1]
                 else:
-                    observation = observations_list[time_ind]
+                    observation = observations[time_ind]
 
             if self.output_configs['scr_output']:
                 if (time_ind % self.output_configs['scr_output_iter']) == 0:
@@ -309,15 +358,16 @@ class FilteringProcess(AssimilationProcess):
                                     )
 
             if update_ref_here:
-                reference_state = self.filter.filter_configs['reference_state'].copy()
-                tmp_traject = self.model.integrate_state(initial_state=reference_state,
-                                                         checkpoints=local_timespan
-                                                         )
-                if isinstance(tmp_traject, list):
-                    self.filter.filter_configs['reference_state'] = tmp_traject[-1].copy()
-                else:
-                    self.filter.filter_configs['reference_state'] = tmp_traject.copy()
-                self.filter.filter_configs['reference_time'] = local_timespan[-1]
+                if filter_obj.filter_configs['reference_state'] is not None:
+                    reference_state = filter_obj.filter_configs['reference_state'].copy()
+                    tmp_traject = self.model.integrate_state(initial_state=reference_state,
+                                                             checkpoints=local_timespan
+                                                             )
+                    if isinstance(tmp_traject, list):
+                        self.filter.filter_configs['reference_state'] = tmp_traject[-1].copy()
+                    else:
+                        self.filter.filter_configs['reference_state'] = tmp_traject.copy()
+                    self.filter.filter_configs['reference_time'] = local_timespan[-1]
 
             # attempt to udpate the model's observation operator:
             try:
@@ -335,6 +385,8 @@ class FilteringProcess(AssimilationProcess):
         #
         return callback_output
         #
+    # aliasing
+    start_assimilation_process = recursive_assimilation_process
 
     #
     def assimilation_cycle(self,
@@ -457,7 +509,11 @@ class FilteringProcess(AssimilationProcess):
 
         # check the reference initial condition and the reference initial time
         if assimilation_configs['ref_initial_condition'] is None or assimilation_configs['ref_initial_time'] is None:
-            raise ValueError("Both the reference initial condition and the initial time must be passed!")
+            print("You didn't pass a reference initial state, and reference initial time.")
+            print("This indicates, you will provide a list of observations to use as real data.")
+            print("Please call filtering_process.recursive_assimilation_process() with the following arguments:")
+            print("observations, obs_checkpoints, da_checkpoints")
+            # raise ValueError("Both the reference initial condition and the initial time must be passed!")
 
         # Check for observation and assimilation checkpoints and update synchronous accordingly
         # if assimilation_configs['da_checkpoints'] is not None and assimilation_configs['obs_checkpoints'] is not None:
@@ -633,7 +689,7 @@ class FilteringProcess(AssimilationProcess):
                 file_output_dir = os.path.join(dates_root_path, file_output_dir)
             #
             parent_path, out_dir = os.path.split(file_output_dir)
-            utility.cleanup_directory(directory_name=out_dir, parent_path=parent_path, backup_existing=True)
+            utility.cleanup_directory(directory_name=out_dir, parent_path=parent_path, backup_existing=backup_existing)
             # Override output configurations of the filter:
             self.file_output_dir = file_output_dir
             self.output_configs['file_output_dir'] = file_output_dir

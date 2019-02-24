@@ -26,7 +26,8 @@ import numpy as np
 import functools
 import numpy.random as nr
 
-import re 
+import sys
+import re
 
 import dates_utility as utility
 
@@ -98,8 +99,14 @@ class FatODE_ERK_ADJ(TimeIntegratorBase):
         # ==================================================================
         # -----------------<Online WRAPPER GENERATION>----------------------
         # ==================================================================
-        erkadj_setup.create_wrapper(verbose=self._verbose)
-        from erkadj import erk_adj_f90_integrator as integrate_adjoint  # CAN-NOT be moved up.
+        try:
+            from erkadj import erk_adj_f90_integrator as integrate_adjoint  # CAN-NOT be moved up.
+        except(ImportError):
+            print("Recreating the FATODE Adjoint Integrator..."),
+            sys.stdout.flush()
+            erkadj_setup.create_wrapper(verbose=self._verbose)
+            from erkadj import erk_adj_f90_integrator as integrate_adjoint  # CAN-NOT be moved up.
+            print("done...")
         self.__integrate_adjoint = integrate_adjoint
         # ==================================================================
         # ----------------------------<Done!>-------------------------------
