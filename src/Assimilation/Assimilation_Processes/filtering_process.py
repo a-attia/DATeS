@@ -154,7 +154,7 @@ class FilteringProcess(AssimilationProcess):
         utility.write_dicts_to_config_file('setup.pickle', file_output_dir,
                                            [model_conf, filter_conf, assim_conf],
                                            ['Model Configs', 'Filter Configs', 'Assimilation Configs'],
-                                           pickle=True
+                                           True
                                           )
         #
 

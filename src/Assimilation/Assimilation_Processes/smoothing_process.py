@@ -567,7 +567,7 @@ class SmoothingProcess(AssimilationProcess):
                     else:
                         append = False
 
-                    for s_ind, state in enumerat(eself._running_analysis_ensemble):
+                    for s_ind, state in enumerate(self._running_analysis_ensemble):
                         tmp_trajectory = self.model.integrate_state(state,
                                                                     [self._running_analysis_time, window_bounds[0]]
                                                                    )

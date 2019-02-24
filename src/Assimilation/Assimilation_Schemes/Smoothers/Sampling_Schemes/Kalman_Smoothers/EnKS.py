@@ -109,6 +109,7 @@ class EnKS(SmootherBase):
     _local_def_EnKS_output_configs = dict(scr_output=False,
                                            file_output=True,
                                            file_output_separate_files=True,
+                                           file_output_dir="Results/Smoothing_Results",
                                            file_output_file_name_prefix='EnKS_results',
                                            file_output_file_format='mat',
                                            smoother_statistics_dir='Smoother_Statistics',
@@ -540,9 +541,10 @@ class EnKS(SmootherBase):
         output_configs = self.output_configs
         file_output_directory = output_configs['file_output_dir']
         update_kernels_dir= os.path.join(file_output_directory, output_configs['update_kernels_dir'])
+        if not os.path.isdir(update_kernels_dir):
+            os.makedirs(update_kernels_dir)
         kernel_file_name = utility.try_file_name(update_kernels_dir, file_prefix=kernel_file_prefix, ignore_base_name=True)
         kernel_file_path = os.path.join(update_kernels_dir, kernel_file_name)
-        print("Saving to : %s " %kernel_file_path)
 
         if isinstance(X5, np.ndarray):
             with open(kernel_file_path, 'wb') as f_id:  # prevent adding extension.

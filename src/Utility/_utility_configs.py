@@ -33,7 +33,7 @@ import re
 try:
     import cPickle as pckle
 except:
-    import pckle
+    import pickle as pckle
     
 try:  # ConfigParser is renamed to configparser in newer versions of Python
     import ConfigParser

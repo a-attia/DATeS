@@ -26,9 +26,9 @@ model = Lorenz(model_configs={'create_background_errors_correlations':True,
                      'background_noise_level':0.08})
 #
 # create observations' and assimilation checkpoints:
-obs_checkpoints = np.arange(0.1,0.301, 0.1)
-da_checkpoints = np.arange(0, 0.01, 0.5)
-analysis_trajectory_timespan = np.arange(0, .301, 0.01)
+obs_checkpoints = np.array([0.1, 0.2, 0.3, 0.4, 0.6, 0.75])
+da_checkpoints = np.array([0.0, 0.3])
+analysis_trajectory_timespan = np.arange(0, 0.75001, 0.1)
 #
 
 # Create DA pieces:
