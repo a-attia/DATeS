@@ -23,6 +23,8 @@ Apply Ensemble Kalman Filter With Adaptive covariance localization to Lorenz96 o
 """
 
 import sys
+sys.path.insert(1, "../")
+
 import os
 import re
 import numpy as np
@@ -137,7 +139,7 @@ if __name__ == '__main__':
                                             raise
                                         else:
                                             print("...PASSING...")
-                                    
+
                                     try:
                                         osf = os.path.join(results_dir, 'output_dir_structure.txt')
                                         cmd = "python filtering_results_reader_coupledlorenz.py -f %s -o True -r True" % osf

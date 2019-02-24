@@ -1,4 +1,4 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
 """
 ============================================================================================
 =                                                                                          =
@@ -19,6 +19,8 @@
 ============================================================================================
 
 """
+import sys
+sys.path.insert(1, "../")
 
 import os
 import numpy as np
@@ -340,7 +342,7 @@ if __name__ == '__main__':
             results_dir = os.path.join(__BASE_RESULTS_DIR, "%s%s" % (exp_tag, postfix))
             if not read_results_only:
                 start_filtering(results_dir, observation_noise_level=observation_noise_level)
-            
+
             # Read RMSE results
             results_file = os.path.join(results_dir, "Collective_Results.pickle")
             cont = pickle.load(open(results_file, 'rb'))
@@ -356,15 +358,15 @@ if __name__ == '__main__':
 
         avg_frcst_rmse = np.asarray(avg_frcst_rmse)
         avg_anl_rmse = np.asarray(avg_anl_rmse)
-        
+
         coll_dict = dict(obs_noise_levels=obs_noise_levels,
                         avg_free_rmse=avg_free_rmse,
                         avg_frcst_rmse=avg_frcst_rmse,
                         avg_anl_rmse=avg_anl_rmse)
         par_results_dir = os.path.dirname(os.path.abspath(results_dir))
         pickle.dump(coll_dict, open(os.path.join(par_results_dir, 'Collective_Results_%s.pickle'%exp_tag), 'wb'))
-        
-        
+
+
         #
         fig = plt.figure(figsize=(6.5,3), facecolor='white')
         ax = fig.add_subplot(111)
@@ -379,7 +381,7 @@ if __name__ == '__main__':
         file_name = os.path.join(plots_dir, "%s.pdf" % exp_tag)
         print("Saving: %s" %file_name)
         plt.savefig(file_name, dpi=300, facecolor='w', format='pdf', transparent=True,     bbox_inches='tight')
-        
+
         # resaving with grid
         plt.minorticks_on()
         ax.grid(True, which='major', linestyle='-')

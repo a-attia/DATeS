@@ -2,8 +2,10 @@
 
 """
 """
+import sys
+sys.path.insert(1, "../")
 
-import sys, os
+import os
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -165,7 +167,7 @@ if __name__ == '__main__':
         file_name = os.path.join(plots_dir, file_name)
         print("Saving Plot: %s" % file_name)
         plt.savefig(file_name, dpi=300, facecolor='w', format='pdf', transparent=True, bbox_inches='tight')
- 
+
         # 2- Low-dimensional Lorenz (coarse
         # ----------------------------------
         state_size = model.state_size()
@@ -183,7 +185,7 @@ if __name__ == '__main__':
         file_name = os.path.join(plots_dir, file_name)
         print("Saving Plot: %s" % file_name)
         plt.savefig(file_name, dpi=300, facecolor='w', format='pdf', transparent=True, bbox_inches='tight')
-        
+
         # 3- Low-dimensional Lorenz (coarse
         # ----------------------------------
         trajectory = np.asarray(forecast_trajectory)
@@ -258,7 +260,7 @@ if __name__ == '__main__':
         file_name = os.path.join(plots_dir, file_name)
         print("Saving Plot: %s" % file_name)
         plt.savefig(file_name, dpi=300, facecolor='w', format='pdf', transparent=True, bbox_inches='tight')
-        
+
         # Repeat for free-run/forecast trajectory
         f_trajectory = np.asarray(forecast_trajectory_fine)
         sinds = np.arange(0, np.size(f_trajectory, 0), 10)
@@ -272,7 +274,7 @@ if __name__ == '__main__':
         file_name = os.path.join(plots_dir, file_name)
         print("Saving Plot: %s" % file_name)
         plt.savefig(file_name, dpi=300, facecolor='w', format='pdf', transparent=True, bbox_inches='tight')
-        
+
         #
         xs = [num_Xs+i for i in xs]
         ys = [num_Xs+i for i in ys]
@@ -300,7 +302,7 @@ if __name__ == '__main__':
         xvals = np.arange(1, yvals.size+1)
         label = r"$z_{j};\, j=1,\ldots,%d$" % (num_Xs*num_Ys)
         ax.plot(xvals, yvals, '-', label=label)
-        # 
+        #
         plt.minorticks_on()
         ax.grid(True, which='major', linestyle='-')
         ax.grid(True, which='minor', linestyle='-.')
@@ -311,7 +313,7 @@ if __name__ == '__main__':
         file_name = os.path.join(plots_dir, file_name)
         print("Saving Plot: %s" % file_name)
         plt.savefig(file_name, dpi=300, facecolor='w', format='pdf', transparent=True, bbox_inches='tight')
-        
+
         ax.set_xticklabels([])
         file_name = "Coupled_Lorenz_IC%s_tickless.pdf" % postfix
         file_name = os.path.join(plots_dir, file_name)
@@ -321,4 +323,3 @@ if __name__ == '__main__':
         if show_plots:
             plt.show()
         plt.close('all')
-

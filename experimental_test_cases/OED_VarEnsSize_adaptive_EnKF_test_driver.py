@@ -1,4 +1,4 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
 """
 ============================================================================================
 =                                                                                          =
@@ -19,11 +19,15 @@
 ============================================================================================
 
 """
+import sys
+sys.path.insert(1, "../")
 
 import os
 import numpy as np
 import pickle
 import matplotlib.pyplot as plt
+
+from coupledlorenz96_enkf_test_driver import get_model_info
 
 try:
     Lorenz96
@@ -36,8 +40,6 @@ except(NameError):
 import dates_utility as utility  # import DATeS utility module(s)
 
 from test_coupled_lorenz import create_model_info, enhance_plotter
-from coupledlorenz96_enkf_test_driver import get_model_info
-
 
 
 # Defaults:
@@ -300,7 +302,7 @@ if __name__ == '__main__':
 
     settings_filename = __FILTER_CONFIGS_FILENAME
     this_dir = os.path.abspath(os.path.dirname(__file__))
-    
+
     ensemble_size_pool = np.arange(5, 26, 5, dtype=np.int)
     num_experiments = 2 * ensemble_size_pool.size
 
@@ -317,7 +319,7 @@ if __name__ == '__main__':
         #
         for ensemble_size in ensemble_size_pool:
             adaptive_localization = not adaptive_inflation
-            postfix = "EnsembleSize_%d" % ensemble_size 
+            postfix = "EnsembleSize_%d" % ensemble_size
 
             # Adjust settings file
             if adaptive_inflation:
@@ -360,7 +362,7 @@ if __name__ == '__main__':
 
         avg_frcst_rmse = np.asarray(avg_frcst_rmse)
         avg_anl_rmse = np.asarray(avg_anl_rmse)
-        
+
 
         coll_dict = dict(ensemble_size_pool=ensemble_size_pool,
                         avg_free_rmse=avg_free_rmse,
@@ -368,14 +370,14 @@ if __name__ == '__main__':
                         avg_anl_rmse=avg_anl_rmse)
         par_results_dir = os.path.dirname(os.path.abspath(results_dir))
         pickle.dump(coll_dict, open(os.path.join(par_results_dir, 'Collective_Results.pickle'), 'wb'))
-        
+
         #
         fig = plt.figure(figsize=(6.5,3), facecolor='white')
         ax = fig.add_subplot(111)
         ax.plot(ensemble_size_pool, avg_free_rmse, '-s', label='Free')
         ax.semilogy(ensemble_size_pool, avg_frcst_rmse, '--d', label='Forecast')
         ax.semilogy(ensemble_size_pool, avg_anl_rmse, '-.o', label='Analysis')
-        
+
         ax.set_ylim(0, np.max(free_rmse)+0.015)
 
         ax.set_xlabel("Ensemble size")
@@ -385,7 +387,7 @@ if __name__ == '__main__':
         file_name = os.path.join(plots_dir, "%s_EnsembleSize_vs_RMSE.pdf" % exp_tag)
         print("Saving: %s" %file_name)
         plt.savefig(file_name, dpi=300, facecolor='w', format='pdf', transparent=True,     bbox_inches='tight')
-        
+
         # resaving with grid
         plt.minorticks_on()
         ax.grid(True, which='major', linestyle='-')
@@ -393,5 +395,3 @@ if __name__ == '__main__':
         file_name = os.path.join(plots_dir, "%s_EnsembleSize_vs_RMSE_grid.pdf" % exp_tag)
         print("Saving: %s" %file_name)
         plt.savefig(file_name, dpi=300, facecolor='w', format='pdf', transparent=True,     bbox_inches='tight')
-
-

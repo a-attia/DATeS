@@ -24,8 +24,11 @@
 
 # This is a script to read and plot the ouptput of EnKF flavors, and HMC filter.
 
+import sys
+sys.path.insert(1, "../")
+
 import os
-import sys, getopt
+import getopt
 import numpy as np
 import scipy.io as sio
 import warnings
@@ -744,7 +747,7 @@ def read_assimilation_results(out_dir_tree_structure_file, show_plots=False, use
             analysis_rmse[i+1] = np.sqrt(np.linalg.norm((analysis_means[:, i]-reference_states[:, i]), 2)/ state_size)
             free_run_rmse[i+1] = np.sqrt(np.linalg.norm((free_run_trajectory[i+1][:]-reference_states[:, i]), 2)/ state_size)
             #
-        
+
         if False:
             xrmse = []
             for i in xrange(num_cycles):
@@ -852,7 +855,7 @@ def read_assimilation_results(out_dir_tree_structure_file, show_plots=False, use
             # =====================================================================
             log_scale = use_logscale
             fig1 = plt.figure(figsize=(15, 6), facecolor='white')
-            #    
+            #
             if log_scale:
                 plt.semilogy(analysis_times, free_run_rmse, '-.', color='red', linewidth=line_width, markersize=marker_size, label='Free Run')
                 plt.semilogy(forecast_times, forecast_rmse, '-d', color='maroon', linewidth=line_width, markersize=marker_size, label='Forecast')
@@ -863,7 +866,7 @@ def read_assimilation_results(out_dir_tree_structure_file, show_plots=False, use
                 plt.plot(forecast_times, forecast_rmse, '-d', color='maroon', linewidth=line_width, markersize=marker_size, label='Forecast')
                 plt.plot(analysis_times, analysis_rmse, '-o', color='darkgreen', linewidth=line_width, markersize=marker_size, label=filter_name)
 
-            #    
+            #
             # Set lables and title
             ax = fig1.gca()
             ax.set_xlabel(r'Time')
@@ -886,7 +889,7 @@ def read_assimilation_results(out_dir_tree_structure_file, show_plots=False, use
             else:
                 plt.ylabel('RMSE', fontsize=font_size, fontweight='bold')
             # plt.title('RMSE results for the model: %s' % model_name)
-            #    
+            #
             skips = max(1, len(forecast_times) / __NUM_X_TICKS)   # - (len(forecast_times) % 10)
             xlables = [forecast_times[i] for i in xrange(0, len(forecast_times), skips)]
             ax.set_xticks(xlables)
@@ -1749,5 +1752,3 @@ if __name__ == '__main__':
                                       use_logscale=use_logscale,
                                       overwrite=overwrite,
                                      )
-
-

@@ -1,4 +1,4 @@
-#!/usr/bin/env python 
+#!/usr/bin/env python
 """
 ============================================================================================
 =                                                                                          =
@@ -19,9 +19,10 @@
 ============================================================================================
 
 """
+import sys
+sys.path.insert(1, "../")
 
 import os
-import sys
 import numpy as np
 import re
 
@@ -74,7 +75,7 @@ def start_filtering(results_dir=None, overwrite=True, create_plots=True):
     num_Xs = 40
     num_Ys = 32
     F = 8.0
-    
+
     observation_size = num_Xs
 
     # Filter settings:
@@ -305,5 +306,3 @@ def start_filtering(results_dir=None, overwrite=True, create_plots=True):
 
 if __name__ == '__main__':
     start_filtering()
-
-

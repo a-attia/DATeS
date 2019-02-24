@@ -5,6 +5,8 @@ Apply Ensemble Kalman Filter to Coupled Lorenz96 model.
 """
 
 import sys
+sys.path.insert(1, "../")
+
 import os
 import numpy as np
 import pickle
@@ -192,10 +194,10 @@ if __name__ == '__main__':
     avg_frcst_rmse = []
     avg_anl_rmse = []
     avg_free_rmse = []
-    
+
     # Filter settings:
     ensemble_size_pool = np.arange(5, 26, 5)
-    
+
     plots_dir = os.path.join(base_file_output_dir, "PLOTS")
 
     for ensemble_size in ensemble_size_pool:
@@ -205,9 +207,9 @@ if __name__ == '__main__':
 
         file_output_dir = os.path.join(base_file_output_dir, "EnsembleSize_%d" % ensemble_size)
         print(file_output_dir)
-        
+
         if not read_only:
-            
+
             #
             # ============================================================
             if os.path.isdir(file_output_dir):
@@ -263,7 +265,7 @@ if __name__ == '__main__':
                 ref_trajectory.append(state)
                 obs = model.state_vector(cpld_observations[: state_size, i])
                 observations.append(model.evaluate_theoretical_observation(obs))
-            
+
             if True:
                 init_ensemble = model.create_initial_ensemble(ensemble_size=ensemble_size)
             else:
@@ -339,11 +341,11 @@ if __name__ == '__main__':
 
             # run the sequential filtering over the timespan created by da_checkpoints
             experiment.recursive_assimilation_process(observations, obs_checkpoints, da_checkpoints)
-        
+
         if individual_plots:
             cmd = "python filtering_results_reader_coupledLorenz.py -f %s" % os.path.join(file_output_dir, 'output_dir_structure.txt')
             os.system(cmd)
-        
+
         # Collect RMSE plots
         try:
             results_file = os.path.join(file_output_dir, "Collective_Results.pickle")
@@ -373,8 +375,8 @@ if __name__ == '__main__':
                      avg_frcst_rmse=avg_frcst_rmse,
                      avg_anl_rmse=avg_anl_rmse)
     pickle.dump(coll_dict, open(os.path.join(base_file_output_dir, 'Collective_Results.pickle'), 'wb'))
-        
-    
+
+
     fig = plt.figure(facecolor='white')
     ax = fig.gca()
     ax.plot(ensemble_size_pool, avg_free_rmse, '-s', label='Free')
