@@ -52,7 +52,7 @@ from observation_vector_base import ObservationVectorBase as ObservationVector
 
 class EnKS(SmootherBase):
     """
-    A class implementing the vanilla 4D-Var DA scheme.
+    A class implementing the vanilla EnKS, ensemble Kalman smoother DA scheme.
 
     Given list of observation vectors, forecast state, and forecast error covariance matrix (or a representative forecast ensemble),
     the analysis step updates the 'analysis state';
@@ -106,7 +106,7 @@ class EnKS(SmootherBase):
                                             analysis_ensemble=None,
                                             inflation_factor=1.05,
                                              )
-    _local_def_4DVAR_output_configs = dict(scr_output=False,
+    _local_def_EnKS_output_configs = dict(scr_output=False,
                                            file_output=True,
                                            file_output_separate_files=True,
                                            file_output_file_name_prefix='EnKS_results',
@@ -144,8 +144,8 @@ class EnKS(SmootherBase):
     #
     def __init__(self, smoother_configs=None, output_configs=None):
 
-        self.smoother_configs = utility.aggregate_configurations(smoother_configs, EnKS._local_def_4DVAR_smoother_configs)
-        self.output_configs = utility.aggregate_configurations(output_configs, EnKS._local_def_4DVAR_output_configs)
+        self.smoother_configs = utility.aggregate_configurations(smoother_configs, EnKS._local_def_EnKS_smoother_configs)
+        self.output_configs = utility.aggregate_configurations(output_configs, EnKS._local_def_EnKS_output_configs)
 
         class OldStyle: pass
         if issubclass(OldStyle().__class__, object):
@@ -178,8 +178,9 @@ class EnKS(SmootherBase):
             self.output_configs.update({'file_output_dir':output_dirs[0],
                                         'smoother_statistics_dir': output_dirs[1],
                                         'model_states_dir':output_dirs[2],
-                                        'observations_dir':output_dirs[3]},
-                                        'EnKF_Update_Kernels'output_dirs[4])  # in case None was give
+                                        'observations_dir':output_dirs[3],
+                                        'update_kernels_dir':output_dirs[4]
+                                       })  # in case None was give
 
         #
         self.__initialized = True
@@ -231,10 +232,11 @@ class EnKS(SmootherBase):
             np.append(analysis_timespan, wb[-1])
 
         analysis_ensemble = self.smoother_configs['analysis_ensemble']
-        if analysis_ensmble is None:
+        if analysis_ensemble is None:
             print("Failed to retrieve the analysis ensemble; found None!")
             print("The forecast step is carried out after the analysis ensemble is generated at the beginning of the assimilation window!")
             raise ValueError
+        analysis_trajectories = []
         for initial_state in analysis_ensemble:
             pass
             initial_time = self.smoother_configs['analysis_time']
@@ -381,8 +383,8 @@ class EnKS(SmootherBase):
 
             # For initial subwindow only, check the flag on both and final assimilation flags
             if iter_ind == 0:
-                assim_flg = assim_flags[iter_ind]
-                if assim_flg:
+                assim_flag = assim_flags[iter_ind]
+                if assim_flag:
                     observation = observations_list[obs_ind]
                     obs_ind += 1
                     print("TODO: Applying EnKF step at the initial time of the whole assimilation window")
@@ -392,15 +394,15 @@ class EnKS(SmootherBase):
                 analysis_ensemble_np = utility.ensemble_to_np_array(moving_ensemble)
 
             # Now, let's do forecast/analysis step for each subwindow:
-            for ens_ind in ensemble_size:
+            for ens_ind in xrange(ensemble_size):
                 state = moving_ensemble[ens_ind]
-                tmp_trajectory = model.integrate_state(initial_state=local_state, checkpoints=local_ckeckpoints)
+                tmp_trajectory = model.integrate_state(initial_state=state, checkpoints=local_ckeckpoints)
                 if isinstance(tmp_trajectory, list):
                     moving_ensemble[ens_ind] = tmp_trajectory[-1].copy()
                 else:
                     moving_ensemble[ens_ind] = tmp_trajectory.copy()
             #
-            assim_flg = assim_flags[iter_ind+1]
+            assim_flag = assim_flags[iter_ind+1]
             if assim_flag:
                 observation = observations_list[obs_ind]
                 obs_ind += 1
@@ -435,11 +437,12 @@ class EnKS(SmootherBase):
         analysis_ensemble_np = analysis_ensemble_np.dot(X5)
         del X5
 
-        analysis_enesmble = moving_ensemble
+        analysis_ensemble = moving_ensemble
         for ens_ind in xrange(ensemble_size):
-            analysis_ensemble[ens_ind][:] = analysis_ensemble[:, ens_ind].copy()  # Need to copy?!
+            analysis_ensemble[ens_ind][:] = analysis_ensemble_np[:, ens_ind].copy()  # Need to copy?!
 
-        self.smoother_config.update({'analysis_ensemble': analysis_ensemble})
+        self.smoother_configs.update({'analysis_ensemble': analysis_ensemble})
+        self.smoother_configs.update({'analysis_state': utility.ensemble_mean(analysis_ensemble)})
         #
         # > --------------------------------------------||
         # END the Smoothing process:
@@ -476,14 +479,14 @@ class EnKS(SmootherBase):
 
         observation_perturbations = [model.evaluate_theoretical_observation(state) for state in forecast_anomalies]
         S = utility.ensemble_to_np_array(observation_perturbations)
+        C = S.dot(S.T)
 
-        C = S.T.dot(S)
         try:
-            C += (ensemble_size - 1) * model.observation_error_model.R
+            C += (ensemble_size - 1) * model.observation_error_model.R[...]
         except:
             C += (ensemble_size - 1) * model.observation_error_model.R.get_numpy_array()
 
-        C_eigs, Z = linalg.eig(C)
+        C_eigs, Z = linalg.eigh(C)
         C_eigs = 1.0 / C_eigs
 
         obs_innov = observation.axpy(-1, model.evaluate_theoretical_observation(forecast_mean))
@@ -491,7 +494,7 @@ class EnKS(SmootherBase):
         y *= C_eigs
         y = Z.dot(y)
         y = S.T.dot(y)
-        
+
         # Update ensemble mean
         analysis_mean = model.state_vector(A_prime.dot(y))
         analysis_mean = analysis_mean.add(forecast_mean)
@@ -499,12 +502,13 @@ class EnKS(SmootherBase):
 
         inv_sqrt_Ceig = sparse.spdiags(np.sqrt(C_eigs), 0, C_eigs.size, C_eigs.size)
         X2 = inv_sqrt_Ceig.dot(Z.T.dot(S))
-        _, Sig2, V2 = linalg.svd(X2)
+        _, Sig2, V2 = linalg.svd(X2, full_matrices=False)
 
         # Calculate the square root of the matrix I-Sig2'*Sig2*theta
-        Sqrtmat = sparse.spdiags(np.sqrt(1.0 - Sig2 * Sig2), 0, Sig2.size, Sig2.size)
-        Aa_prime = A_prime.dot(V2.dot(Sqrtmat.dot(V2.T)))
-        if self.verbose:
+        Sqrtmat = sparse.spdiags(np.sqrt(1.0 - np.power(Sig2,2)), 0, Sig2.size, Sig2.size)
+        Aa_prime = A_prime.dot(V2.T.dot(Sqrtmat.dot(V2)))
+        
+        if self._verbose:
             # For debugging
             print(A_prime, type(A_prime))
         
@@ -512,11 +516,12 @@ class EnKS(SmootherBase):
         analysis_ensemble = [model.state_vector(xa+A_prime[:, j]) for j in xrange(np.size(A_prime, 1)) ]
         
         # Build the update kernel X5
-        xx = V2.dot(Sqrtmat.dot(V2.T))
+        xx = V2.T.dot(Sqrtmat.dot(V2))
+
         for j in xrange(np.size(xx, 1)):
-            xx[:, j] += y
+            xx[:, j] += y[:]
         IN = np.ones((ensemble_size, ensemble_size), dtype=np.float) / ensemble_size
-        X5  = IN + inflation_factor * (sparse.spdiags((np.ones(ensemble_size), 0, ensemble_size, ensemble_size)) - 1.0)
+        X5  = IN + inflation_factor * np.dot( (sparse.spdiags(np.ones(ensemble_size), 0, ensemble_size, ensemble_size) - IN), xx)
 
         return analysis_ensemble, X5
 
@@ -532,12 +537,16 @@ class EnKS(SmootherBase):
         else:
             pass
         kernel_file_prefix = 'EnKF_kernel'
-        update_kernels_dir= os.path.join(file_output_directory, output_configs['EnKF_Update_Kernels'])
+        output_configs = self.output_configs
+        file_output_directory = output_configs['file_output_dir']
+        update_kernels_dir= os.path.join(file_output_directory, output_configs['update_kernels_dir'])
         kernel_file_name = utility.try_file_name(update_kernels_dir, file_prefix=kernel_file_prefix, ignore_base_name=True)
-        kernel_file_path = os.path.join(update_kernel_dirs, kernel_file_name)
-        
+        kernel_file_path = os.path.join(update_kernels_dir, kernel_file_name)
+        print("Saving to : %s " %kernel_file_path)
+
         if isinstance(X5, np.ndarray):
-            np.save(kernel_file_path, X5)
+            with open(kernel_file_path, 'wb') as f_id:  # prevent adding extension.
+                np.save(f_id, X5)
         else:
             print("This file type is not yet suuported. Expected %s, received %s!" % ("np.ndarray", type(X5)))
             raise TypeError
@@ -600,7 +609,7 @@ class EnKS(SmootherBase):
         smoother_statistics_dir = os.path.join(file_output_directory, output_configs['smoother_statistics_dir'])
         model_states_dir = os.path.join(file_output_directory, output_configs['model_states_dir'])
         observations_dir = os.path.join(file_output_directory, output_configs['observations_dir'])
-        update_kernels_dir= os.path.join(file_output_directory, output_configs['EnKF_Update_Kernels'])
+        update_kernels_dir= os.path.join(file_output_directory, output_configs['update_kernels_dir'])
         file_output_variables = output_configs['file_output_variables']  # I think it's better to remove it from the smoother base...
 
         if not os.path.isdir(smoother_statistics_dir):
@@ -610,9 +619,9 @@ class EnKS(SmootherBase):
         if not os.path.isdir(observations_dir):
             os.makedirs(observations_dir)
         if not os.path.isdir(update_kernels_dir):
-            os.makedirs(update_kernel_dir)
+            os.makedirs(update_kernels_dir)
         #
-        return file_output_directory, smoother_statistics_dir, model_states_dir, observations_dir, update_kernel_dir
+        return file_output_directory, smoother_statistics_dir, model_states_dir, observations_dir, update_kernels_dir
 
     #
     def save_cycle_results(self, output_dir=None, save_err_covars=False):
@@ -639,7 +648,7 @@ class EnKS(SmootherBase):
         if not file_output:
             raise ValueError("The output flag is turned of. The method 'save_cycle_results' is called though!")
 
-        file_output_directory, smoother_statistics_dir, model_states_dir, observations_dir = self._prepare_output_paths(output_dir=output_dir, cleanup_out_dir=False)
+        file_output_directory, smoother_statistics_dir, model_states_dir, observations_dir, update_kernels_dir = self._prepare_output_paths(output_dir=output_dir, cleanup_out_dir=False)
 
         # check if results are to be saved to separate files or appended on existing files.
         # This may be overridden if not adequate for some output (such as model states), we will see!

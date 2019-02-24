@@ -5,8 +5,9 @@ Apply Ensemble Kalman Filter to Lorenz96 model.
 """
 
 import sys
-import numpy as np
+sys.path.insert(1, "../")
 
+import numpy as np
 
 # Define environment variables and update Python search path;
 # this is a necessary call that must be inserted in the beginning of any driver.

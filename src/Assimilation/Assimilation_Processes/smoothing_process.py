@@ -144,7 +144,7 @@ class SmoothingProcess(AssimilationProcess):
         else:
             pass
         #
-    except:
+    except :
         __time_eps = None
     finally:
         if __time_eps is None:
@@ -189,7 +189,7 @@ class SmoothingProcess(AssimilationProcess):
         except(TypeError, AttributeError):
             self._running_forecast_state = None
         try:  # TODO: This is overkill!
-            self._running_forecast_ensemble = [s.copy for s in self.assimilation_configs['initial_ensemble']]
+            self._running_forecast_ensemble = [s.copy() for s in self.assimilation_configs['initial_ensemble']]
         except(TypeError, AttributeError):
             self._running_forecast_ensemble = None
         #
@@ -199,7 +199,7 @@ class SmoothingProcess(AssimilationProcess):
         except(TypeError, AttributeError):
             self._running_analysis_state = None
         try:  # TODO: This is overkill!
-            self._running_analysis_ensemble = [s.copy for s in self.assimilation_configs['initial_ensemble']]
+            self._running_analysis_ensemble = [s.copy() for s in self.assimilation_configs['initial_ensemble']]
         except(TypeError, AttributeError):
             self._running_analysis_ensemble = None
         #
@@ -304,16 +304,16 @@ class SmoothingProcess(AssimilationProcess):
         if analysis_ensemble_trajectory is analysis_ensemble is None:
             no_ensembles = True
             pass
-        elif analysis_enemble is None:
+        elif analysis_ensemble is None:
             print("How is it possible that an ensemble trajectory is created without an anlysis ensemble!")
             raise ValueError
-        elif analysis_ensemble_trajcetory is None:
+        elif analysis_ensemble_trajectory is None:
             # Generate analysis ensemble trajecory from analysis ensemble
             analysis_ensemble_trajectory = []
             for state in analysis_ensemble:
                 traject = self.model.integrate_state(initial_state=state, checkpoints=analysis_timespan)
                 analysis_ensemble_trajectory.append([s.copy() for s in traject])
-            self.smoother_configs.update({'analysis_ensemble_trajectory': analysis_ensemble_trajectory})
+            self.smoother.smoother_configs.update({'analysis_ensemble_trajectory': analysis_ensemble_trajectory})
         else:
             # both analysis ensemble and analysis ensemble trajecgtory are given; do nothing
             pass
@@ -329,7 +329,7 @@ class SmoothingProcess(AssimilationProcess):
             # Generate analysis trajecory from analysis state
             analysis_trajectory = []
             traject = self.model.integrate_state(initial_state=analysis_state, checkpoints=analysis_timespan)
-            self.smoother_configs.update({'analysis_trajectory': traject})
+            self.smoother.smoother_configs.update({'analysis_trajectory': traject})
         else:
             # both analysis state and analysis trajecgtory are given; do nothing
             pass
@@ -419,12 +419,6 @@ class SmoothingProcess(AssimilationProcess):
         #
         for wind_ind in xrange(num_assim_windows):
             #
-            if wind_ind == 1 :
-                print("Exiting for debugging...")
-                sys.exit()
-                
-            # TODO: Ahmed, incorporate DATES_TIME_EPS for time comparison everywhere as appropriate...
-
             # 1) retrieve assimilation window time bounds: ([t0, tf])
             if wind_ind == num_assim_windows-1:
                 # this is the last assimilation window:

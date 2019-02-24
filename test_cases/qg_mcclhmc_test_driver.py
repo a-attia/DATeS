@@ -38,6 +38,8 @@
 """
 
 import sys
+sys.path.insert(1, "../")
+
 import numpy as np  # this is just to create
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
@@ -74,11 +76,11 @@ da_checkpoints = obs_checkpoints
 #
 
 
-# Create DA pieces: 
+# Create DA pieces:
 # ---------------------
 # this includes:
 #   i-   forecast trajectory/state
-#   ii-  initial ensemble, 
+#   ii-  initial ensemble,
 #   iii- filter/smoother/hybrid object.
 #
 # create initial ensemble...
@@ -144,8 +146,8 @@ mc_mcmc_filter_configs.update(dict(proposal_density='hmc',  # 'Gaussian', and HM
 mc_mcmc_output_configs = hmc_output_configs
 filter_obj = MultiChainMCMC(filter_configs=mc_mcmc_filter_configs, output_configs = mc_mcmc_output_configs)
 
-# Create sequential DA 
-# processing object: 
+# Create sequential DA
+# processing object:
 # ---------------------
 # Here this is a filtering_process object;
 from filtering_process import FilteringProcess
@@ -170,4 +172,3 @@ experiment.recursive_assimilation_process()
 # ---------------------
 utility.clean_executable_files()
 #
-

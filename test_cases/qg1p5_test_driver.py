@@ -38,6 +38,8 @@
 """
 
 import sys
+sys.path.insert(1, "../")
+
 import numpy as np  # this is just to create
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
@@ -105,8 +107,8 @@ fcst_traj_reshaped = np.empty((len(reference_trajectory), nx, nx))
 for time_ind in xrange(len(forecast_trajectory)):
     fcst_traj_reshaped[time_ind, :, :] = np.reshape(forecast_trajectory[time_ind].get_numpy_array(), (nx, nx), order='F')
     forecast_rmse.append(utility.calculate_rmse(forecast_trajectory[time_ind], reference_trajectory[time_ind], model._state_size))
-    
-    
+
+
 
 # Plot results
 # TODO: plot the reference solution, the forecast solution and the observations on the same figure.
@@ -196,4 +198,3 @@ plt.show()
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # utility.clean_executable_files()
-

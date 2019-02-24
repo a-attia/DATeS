@@ -38,6 +38,8 @@
 """
 
 import sys
+sys.path.insert(1, "../")
+
 import numpy as np  # this is just to create
 from matplotlib import pyplot as plt
 import matplotlib.animation as animation
@@ -57,7 +59,7 @@ from qg_1p5_model import QG1p5
 model = QG1p5(model_configs = dict(MREFIN=5, model_name='QG-1.5',
                                    model_grid_type='cartesian',
                                    observation_operator_type='linear',
-                                   observation_vector_size=50,  
+                                   observation_vector_size=50,
                                    observation_error_variances=4.0,
                                    observation_errors_covariance_method='diagonal',
                                    background_error_variances=5.0,
@@ -73,11 +75,11 @@ da_checkpoints = obs_checkpoints
 #
 
 
-# Create DA pieces: 
+# Create DA pieces:
 # ---------------------
 # this includes:
 #   i-   forecast trajectory/state
-#   ii-  initial ensemble, 
+#   ii-  initial ensemble,
 #   iii- filter/smoother/hybrid object.
 #
 # create initial ensemble...
@@ -92,12 +94,12 @@ enkf_filter_configs = dict(model=model,
                            ensemble_size=ensemble_size
                            )
 
-filter_obj = StochasticEnKF(filter_configs=enkf_filter_configs, 
+filter_obj = StochasticEnKF(filter_configs=enkf_filter_configs,
                             output_configs=dict(file_output_moment_only=False)
                             )
 
-# Create sequential DA 
-# processing object: 
+# Create sequential DA
+# processing object:
 # ---------------------
 # Here this is a filtering_process object;
 from filtering_process import FilteringProcess
@@ -123,4 +125,3 @@ experiment.recursive_assimilation_process()
 # ---------------------
 utility.clean_executable_files()
 #
-
